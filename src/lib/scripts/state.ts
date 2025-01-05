@@ -31,7 +31,6 @@ export class State {
         let req = new Request();
         req.setRequest("getState");
         this._console.sendRequest(req, (response: Request) => {
-            console.log("RECEEEEEIVE STATE FROM CONSOOOOOOOLE");
             let state = response.getParam('state', {});
             this._onReceiveState(response.header.from, state);
         });
