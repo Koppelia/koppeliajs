@@ -180,9 +180,22 @@ export class Request {
         this.data = data;
     }
 
+    /**
+     * Set a new request with a request name
+     * @param execName name of 
+     */
     setRequest(execName: string) {
         this.header.type = RequestType.REQUEST;
         this.request.exec = execName;
+    }
+
+    getParam(paramName: string, def: any = null): any {
+        if (paramName in this.request.params) {
+            return this.request.params[paramName]
+        }
+        else {
+            return def;
+        }
     }
 
     setIdentification(peerToIdentify: PeerType) {

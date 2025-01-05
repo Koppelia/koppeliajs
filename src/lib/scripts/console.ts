@@ -7,6 +7,7 @@ import { get } from 'svelte/store';
 const PORT = 2225;
 
 export type ChangeStateCallback = (from: string, state: AnyState) => void
+export type ChangeStageCallback = (from: string, stage: string) => void
 export type DataExchangeCallback = (from: string, data: any) => void
 export type DeviceEventCallback = (device: string, from_addr: string, event: string) => void
 export type DeviceDataCallback = (device: string, from_addr: string, event: string) => void
@@ -18,7 +19,8 @@ export type DeviceDataCallback = (device: string, from_addr: string, event: stri
 export class Console {
     consoleHostname: string = "";
     consoleSocket: KoppeliaWebsocket;
-    private _changeStateHandlers: any[];
+    private _changeStateHandlers: ChangeStateCallback[];
+    private _changeStageHandlers: ChangeStageCallback[];
     private _deviceEventHandlers: any[];
     private _deviceDataHandlers: any[];
     private _dataExchangeHandlers: any[];
@@ -33,6 +35,7 @@ export class Console {
         this._ready = false;
 
         this._changeStateHandlers = [];
+        this._changeStageHandlers = [];
         this._deviceEventHandlers = [];
         this._deviceDataHandlers = [];
         this._dataExchangeHandlers = [];
@@ -75,8 +78,20 @@ export class Console {
         req.setDestination(receiver);
     }
 
+    /**
+     * Add a callback that will be executed when receive a new state from console
+     * @param callback 
+     */
     onStateChange(callback: ChangeStateCallback) {
         this._changeStateHandlers.push(callback);
+    }
+    
+    /**
+     * Add a callback that will be executed when the current stage has changed
+     * @param callback 
+     */
+    onStageChange(callback: ChangeStageCallback) {
+        this._changeStageHandlers.push(callback)
     }
 
     /**
@@ -106,41 +121,42 @@ export class Console {
             }
         });
 
-        this.consoleSocket.onReceive((data) => {
-            this._processReceivedData(data);
+        this.consoleSocket.onReceive((request: Request) => {
+            this._processReceivedData(request);
         });
     }
 
-    private _processReceivedData(data: any) {
-        console.log("Receive new data from console", data);
-        let res = new Request();
-        res.parse(data);
-        if(res.header.type === undefined)
+    private _processReceivedData(request: Request) {
+        console.log("Receive new data from console", request);
+        if(request.header.type === undefined)
             return;
         
-        let type = res.header.type;
+        let type = request.header.type;
         /* Handle specific requests */
         if(type == RequestType.REQUEST) {
-            switch(res.request.exec) {
+            switch(request.request.exec) {
                 case "changeState":
-                    this._execChangeStateHandlers(res.header.from, res.request.params.state)
+                    this._execChangeStateHandlers(request.header.from, request.request.params.state);
+                    break;
+                case "changeStage":
+                    this._execChangeStageHandlers(request.header.from, request.request.params.stage);
                     break;
             }
         }
 
         /* Handle data exchange */
         else if (type == RequestType.DATA_EXCHANGE) {
-           this._execDataExchangeHandlers(data.header.from, data.data);
+           this._execDataExchangeHandlers(request.header.from, request.data);
         } 
         
         /* Handle device event */
         else if (type == RequestType.DEVICE_EVENT) {
-           this._execDeviceEventHandlers(data.header.device, data.header.from_addr, data.event);
+           this._execDeviceEventHandlers(request.header.device, request.header.from_addr, request.event);
         } 
         
         /* Handle device data */
         else if (type == RequestType.DEVICE_DATA) {
-           this._execDeviceDataHandlers(data.header.from_addr, data.data);
+           this._execDeviceDataHandlers(request.header.from_addr, request.data);
         }
 
     }
@@ -160,6 +176,12 @@ export class Console {
     private _execChangeStateHandlers (from: string, state: AnyState) {
         for(let handler of this._changeStateHandlers) {
             handler(from, state);
+        }
+    }
+
+    private _execChangeStageHandlers (from: string, stage: string) {
+        for(let handler of this._changeStageHandlers) {
+            handler(from, stage);
         }
     }
 

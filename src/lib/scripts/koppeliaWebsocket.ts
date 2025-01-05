@@ -1,6 +1,6 @@
-import type { AnyRequest, Request } from "./request.js";
+import { Request, type AnyRequest } from "./request.js";
 
-export type Callback = (response: AnyRequest) => void
+export type Callback = (response: Request) => void
 
 type OnGoingRequest = {
     requestId: string,
@@ -99,22 +99,23 @@ export class KoppeliaWebsocket {
         if (data === undefined) {
             return
         }
-
-        if (data.requestId !== undefined) {
+        let message = new Request()
+        message.parse(data)
+        if (message.getRequestId() !== undefined) {
             // There is a request id, check if it's a response
-            let onGoing = this._getOnGoingRequest(data.requestId);
+            let onGoing = this._getOnGoingRequest(message.getRequestId());
             if (onGoing) {
                 // check if the callback exists
                 if (onGoing.callback)
-                    onGoing.callback!(data);
+                    onGoing.callback!(message);
                 // otherwise do not execute callback and delete the request from ongoing
-                this._deleteRequest(data.requestId);
+                this._deleteRequest(message.getRequestId());
                 return
             }
         } 
 
         for (let callback of this.receiveCallbacks) {
-            callback!(data);
+            callback!(message);
         }
     }
 

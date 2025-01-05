@@ -6,19 +6,22 @@ import { get, writable, type Writable } from "svelte/store";
 export type AnyState = { [key: string]: string }
 
 export class State {
-    private globalState: Writable<AnyState> = writable({});
-    private console: Console
+    private _globalState: Writable<AnyState>;
+    private _console: Console
     private _access: boolean = true;
 
     constructor(console: Console, defaultState: AnyState = {}) {
-        this.globalState.set(defaultState);
-        this.console = console;
+        this._access = false;
+        this._globalState = writable(defaultState);
+        //this._globalState.set(defaultState);
+        this._console = console;
 
         this._initEvents();
+        this._access = true;
     }
 
     public get state(): Writable<AnyState> {
-        return this.globalState;
+        return this._globalState;
     }
 
     /**
@@ -27,8 +30,10 @@ export class State {
     public updateFromServer() {
         let req = new Request();
         req.setRequest("getState");
-        this.console.sendRequest(req, (response) => {
-            // TODO: to implement
+        this._console.sendRequest(req, (response: Request) => {
+            console.log("RECEEEEEIVE STATE FROM CONSOOOOOOOLE");
+            let state = response.getParam('state', {});
+            this._onReceiveState(response.header.from, state);
         });
     }
 
@@ -37,13 +42,7 @@ export class State {
      * @param newState 
      */
     public setState(newState: AnyState) {
-        this.globalState.set(newState);
-
-        let req = new Request();
-        req.setRequest("changeState");
-        req.addParam("state", newState);
-        this.console.sendRequest(req);
-
+        this._globalState.set(newState);
     }
 
     /**
@@ -51,7 +50,7 @@ export class State {
      * @param stateUpdate 
      */
     public updateState(stateUpdate: AnyState) {
-        let tempState = get(this.globalState);
+        let tempState = get(this._globalState);
         for (let key in stateUpdate) {
             tempState[key] = stateUpdate[key];
         }
@@ -64,20 +63,29 @@ export class State {
      * @param any 
      */
     private _initEvents() {
-        this.console.onStateChange((from, state) => {
+        // Get the state when the console is ready
+        this._console.onReady(() => {
+            this.updateFromServer();
+        });
+
+        // update the state when receive a change from console
+        this._console.onStateChange((from, state) => {
             this._onReceiveState(from, state);
         });
 
-        this.globalState.subscribe((newState: AnyState) => {
-            this.console.onReady(() => {
-                if (this._access) {
+        // Send a change state request when detect a state change
+        this._globalState.subscribe((newState: AnyState) => {
+            if (this._access) {
+                this._console.onReady(() => {
+
                     console.log("change state new state", newState)
                     let req = new Request();
                     req.setRequest("changeState");
                     req.addParam("state", newState);
-                    this.console.sendRequest(req);
-                }
-            });
+                    this._console.sendRequest(req);
+
+                });
+            }
 
         });
 
@@ -88,7 +96,7 @@ export class State {
      */
     private _onReceiveState(from: string, receivedState: AnyState) {
         this._access = false;
-        this.globalState.set(receivedState);
+        this._globalState.set(receivedState);
         this._access = true;
     }
 }
