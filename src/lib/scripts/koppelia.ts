@@ -2,8 +2,9 @@ import { get, type Writable } from "svelte/store";
 import { routeType } from "../stores/routeStore.js";
 import { Console } from "./console.js";
 import { State, type AnyState } from "./state.js";
-import { PeerType } from "./request.js";
+import { Message, PeerType } from "./message.js";
 import { Stage } from "./stage.js";
+import { Device } from "./device.js"
 
 
 export class Koppelia {
@@ -92,6 +93,39 @@ export class Koppelia {
     public goto(stageName: string) {
         this._stage.goto(stageName);
     }
+
+    /**
+     * Get the list of devices in a callback
+     * @param callback 
+     */
+    public getDevices(callback: (devices: Device[]) => void) {
+        // create the message to request the devices
+        let getDevicesRequest = new Message();
+        getDevicesRequest.setRequest("getDevices");
+        getDevicesRequest.setDestination(PeerType.MASTER, "");
+        
+        // send the message to the console
+        this._console.sendRequest(getDevicesRequest, (response: Message) => {
+            // convert the response to al list of device objects
+            let devices_raw: any = response.getParam("devices", []);
+            let devices: Device[] = [];
+            for(let device_raw of devices_raw) {
+                let device = new Device(this._console);
+                device.fromObject(device_raw);
+                devices.push(device);
+            }
+            callback(devices);
+        });
+
+    }
+
+
+
+
+
+
+
+
 
 
 
