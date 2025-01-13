@@ -12,17 +12,19 @@ export enum PeerType {
     NONE = "none",
 };
 
-export enum RequestType {
+export enum MessageType {
     EMPTY = "empty",
     REQUEST = "request",
+    RESPONSE = "response",
     DATA_EXCHANGE = "data_exchange",
     DEVICE_EVENT = "device_event",
     DEVICE_DATA = "device_data",
     IDENTIFICATION = "identification",
     MODULE_ENABLE = "module_enable",
+    ERROR = "error"
 }
 
-type RequestHeader = {
+type MessagetHeader = {
     id: string,
     type: string,
     from: string,
@@ -32,9 +34,9 @@ type RequestHeader = {
     device: string,
 };
 
-export type RequestData = { [key: string]: string }
+export type MessageData = { [key: string]: string }
 
-type RequestEvent = string;
+type MessageEvent = string;
 
 type DirectRequest = {
     exec: string,
@@ -44,16 +46,16 @@ type DirectRequest = {
 /**
  * The koppelia protocol
  */
-export class Request {
-    header: RequestHeader;
-    data: RequestData;
+export class Message {
+    header: MessagetHeader;
+    data: MessageData;
     request: DirectRequest;
-    event: RequestEvent;
+    event: MessageEvent;
 
     constructor() {
         this.header = {
             id: "",
-            type: RequestType.EMPTY,
+            type: MessageType.EMPTY,
             from: PeerType.NONE,
             to: PeerType.NONE,
             from_addr: "",
@@ -76,7 +78,7 @@ export class Request {
         if (data.header !== undefined) {
             for (let key in data.header) {
                 if (key in this.header) {
-                    this.header[key as keyof RequestHeader] = data.header[key];
+                    this.header[key as keyof MessagetHeader] = data.header[key];
                 }
             }
         }
@@ -133,7 +135,7 @@ export class Request {
      * Get event name of the request, if it is an event
      * @returns 
      */
-    getEvent(): RequestEvent {
+    getEvent(): MessageEvent {
         return this.event;
     }
 
@@ -141,7 +143,7 @@ export class Request {
      * Set the type of the request
      * @param type 
      */
-    setType(type: RequestType) {
+    setType(type: MessageType) {
         this.header.type = type;
     }
 
@@ -149,8 +151,8 @@ export class Request {
      * Set an event to the request
      * @param event 
      */
-    setEvent(event: RequestEvent) {
-        this.header.type = RequestType.REQUEST;
+    setEvent(event: MessageEvent) {
+        this.header.type = MessageType.REQUEST;
         this.event = event;
     }
 
@@ -176,7 +178,7 @@ export class Request {
      * 
      * @param data 
      */
-    setData(data: RequestData) {
+    setData(data: MessageData) {
         this.data = data;
     }
 
@@ -185,7 +187,7 @@ export class Request {
      * @param execName name of 
      */
     setRequest(execName: string) {
-        this.header.type = RequestType.REQUEST;
+        this.header.type = MessageType.REQUEST;
         this.request.exec = execName;
     }
 
@@ -199,7 +201,7 @@ export class Request {
     }
 
     setIdentification(peerToIdentify: PeerType) {
-        this.header.type = RequestType.IDENTIFICATION;
+        this.header.type = MessageType.IDENTIFICATION;
         this.header.from = peerToIdentify;
     }
 

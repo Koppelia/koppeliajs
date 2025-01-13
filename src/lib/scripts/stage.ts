@@ -1,5 +1,5 @@
 import { Console } from "./console.js";
-import { Request } from "./request.js";
+import { Message } from "./message.js";
 import { goto } from "$app/navigation";
 import { routeType } from "../stores/routeStore.js";
 import { get } from "svelte/store";
@@ -21,14 +21,14 @@ export class Stage {
     }
 
     public initStages(stages: string[]) {
-        let req = new Request();
+        let req = new Message();
         req.setRequest("initStages");
         req.addParam("stages", stages);
         this._console.sendRequest(req);
     }
 
     public goto(stage: string) {
-        let req = new Request();
+        let req = new Message();
         req.setRequest("changeStage");
         req.addParam("stage", stage);
         this._console.sendRequest(req);

@@ -1,6 +1,6 @@
-import { Request, type AnyRequest } from "./request.js";
+import { Message, type AnyRequest } from "./message.js";
 
-export type Callback = (response: Request) => void
+export type Callback = (response: Message) => void
 
 type OnGoingRequest = {
     requestId: string,
@@ -45,7 +45,7 @@ export class KoppeliaWebsocket {
      * @param data 
      * @param callback 
      */
-    public send(data: Request, callback?: Callback) {
+    public send(data: Message, callback?: Callback) {
         if (this.socket === undefined) {
             console.log("KoppeliaWebsocket::send(): Koppelia websocket client was not instancieated")
             return;
@@ -99,7 +99,7 @@ export class KoppeliaWebsocket {
         if (data === undefined) {
             return
         }
-        let message = new Request()
+        let message = new Message()
         message.parse(data)
         if (message.getRequestId() !== undefined) {
             // There is a request id, check if it's a response

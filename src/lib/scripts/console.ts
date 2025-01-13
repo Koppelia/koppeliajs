@@ -1,5 +1,5 @@
 import { KoppeliaWebsocket, type Callback } from './koppeliaWebsocket.js';
-import { Request, type RequestData, PeerType, RequestType } from './request.js'
+import { Message, type MessageData, PeerType, MessageType } from './message.js'
 import type { AnyState } from './state.js';
 import { page } from '$app/stores';
 import { get } from 'svelte/store';
@@ -49,7 +49,7 @@ export class Console {
      * @param request 
      * @param callback the callback is called when websocket receives a response
      */
-    sendRequest(request: Request, callback?: Callback) {
+    sendRequest(request: Message, callback?: Callback) {
         this.consoleSocket.send(request, callback)
     }
 
@@ -58,7 +58,7 @@ export class Console {
      * @param peer 
      */
     identify(peer: PeerType) {
-        let req = new Request()
+        let req = new Message()
         req.setIdentification(peer);
         this.consoleSocket.send(req);
     }
@@ -72,8 +72,8 @@ export class Console {
      * @param receiver 
      * @param data 
      */
-    sendDataTo(receiver: PeerType, data: RequestData) {
-        let req = new Request();
+    sendDataTo(receiver: PeerType, data: MessageData) {
+        let req = new Message();
         req.setData(data);
         req.setDestination(receiver);
     }
@@ -121,19 +121,19 @@ export class Console {
             }
         });
 
-        this.consoleSocket.onReceive((request: Request) => {
+        this.consoleSocket.onReceive((request: Message) => {
             this._processReceivedData(request);
         });
     }
 
-    private _processReceivedData(request: Request) {
+    private _processReceivedData(request: Message) {
         console.log("Receive new data from console", request);
         if(request.header.type === undefined)
             return;
         
         let type = request.header.type;
         /* Handle specific requests */
-        if(type == RequestType.REQUEST) {
+        if(type == MessageType.REQUEST) {
             switch(request.request.exec) {
                 case "changeState":
                     this._execChangeStateHandlers(request.header.from, request.request.params.state);
@@ -145,17 +145,17 @@ export class Console {
         }
 
         /* Handle data exchange */
-        else if (type == RequestType.DATA_EXCHANGE) {
+        else if (type == MessageType.DATA_EXCHANGE) {
            this._execDataExchangeHandlers(request.header.from, request.data);
         } 
         
         /* Handle device event */
-        else if (type == RequestType.DEVICE_EVENT) {
+        else if (type == MessageType.DEVICE_EVENT) {
            this._execDeviceEventHandlers(request.header.device, request.header.from_addr, request.event);
         } 
         
         /* Handle device data */
-        else if (type == RequestType.DEVICE_DATA) {
+        else if (type == MessageType.DEVICE_DATA) {
            this._execDeviceDataHandlers(request.header.from_addr, request.data);
         }
 

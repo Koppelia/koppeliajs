@@ -1,5 +1,5 @@
 import { Console } from "./console.js";
-import { Request } from "./request.js";
+import { Message } from "./message.js";
 import { get, writable, type Writable } from "svelte/store";
 
 
@@ -13,7 +13,6 @@ export class State {
     constructor(console: Console, defaultState: AnyState = {}) {
         this._access = false;
         this._globalState = writable(defaultState);
-        //this._globalState.set(defaultState);
         this._console = console;
 
         this._initEvents();
@@ -28,9 +27,9 @@ export class State {
      * Update the state from the server
      */
     public updateFromServer() {
-        let req = new Request();
+        let req = new Message();
         req.setRequest("getState");
-        this._console.sendRequest(req, (response: Request) => {
+        this._console.sendRequest(req, (response: Message) => {
             let state = response.getParam('state', {});
             this._onReceiveState(response.header.from, state);
         });
@@ -78,7 +77,7 @@ export class State {
                 this._console.onReady(() => {
 
                     console.log("change state new state", newState)
-                    let req = new Request();
+                    let req = new Message();
                     req.setRequest("changeState");
                     req.addParam("state", newState);
                     this._console.sendRequest(req);
