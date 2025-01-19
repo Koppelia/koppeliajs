@@ -49,8 +49,8 @@ export class Console {
      * @param message 
      * @param callback the callback is called when websocket receives a response
      */
-    sendRequest(request: Message, callback?: Callback) {
-        this.consoleSocket.send(request, callback)
+    sendMessage(message: Message, callback?: Callback) {
+        this.consoleSocket.send(message, callback)
     }
 
     /**
