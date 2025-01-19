@@ -24,14 +24,14 @@ export class Stage {
         let req = new Message();
         req.setRequest("initStages");
         req.addParam("stages", stages);
-        this._console.sendRequest(req);
+        this._console.sendMessage(req);
     }
 
     public goto(stage: string) {
         let req = new Message();
         req.setRequest("changeStage");
         req.addParam("stage", stage);
-        this._console.sendRequest(req);
+        this._console.sendMessage(req);
     }
 
     private _initEvents() {

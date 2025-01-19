@@ -46,7 +46,7 @@ export class Console {
 
     /**
      * Sdnd a message to the console, set header.to to dispatch the message
-     * @param request 
+     * @param message 
      * @param callback the callback is called when websocket receives a response
      */
     sendRequest(request: Message, callback?: Callback) {
@@ -104,6 +104,10 @@ export class Console {
             this._onReadyCallback.push(callback);
         else
             callback();
+    }
+
+    onDeviceEvent(callback: () => void) {
+        this._deviceEventHandlers.push(callback);
     }
 
     /**

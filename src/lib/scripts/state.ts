@@ -29,7 +29,7 @@ export class State {
     public updateFromServer() {
         let req = new Message();
         req.setRequest("getState");
-        this._console.sendRequest(req, (response: Message) => {
+        this._console.sendMessage(req, (response: Message) => {
             let state = response.getParam('state', {});
             this._onReceiveState(response.header.from, state);
         });
@@ -80,7 +80,7 @@ export class State {
                     let req = new Message();
                     req.setRequest("changeState");
                     req.addParam("state", newState);
-                    this._console.sendRequest(req);
+                    this._console.sendMessage(req);
 
                 });
             }

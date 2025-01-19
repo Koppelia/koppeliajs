@@ -105,7 +105,7 @@ export class Koppelia {
         getDevicesRequest.setDestination(PeerType.MASTER, "");
         
         // send the message to the console
-        this._console.sendRequest(getDevicesRequest, (response: Message) => {
+        this._console.sendMessage(getDevicesRequest, (response: Message) => {
             // convert the response to al list of device objects
             let devices_raw: any = response.getParam("devices", []);
             let devices: Device[] = [];

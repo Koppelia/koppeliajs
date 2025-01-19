@@ -170,7 +170,7 @@ export class Message {
      * @param key 
      * @param value 
      */
-    addData(key: string, value: string) {
+    addData(key: string, value: any) {
         this.data[key] = value;
     }
 
