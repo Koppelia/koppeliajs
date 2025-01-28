@@ -50,18 +50,27 @@ export class Device {
     onEvent(eventName: string, callback: () => void) {
         this._attachEvent(eventName);
         this._console.onDeviceEvent(callback);
-
     }
 
     onZPosition(callback: (z: number) => void) {
         this._enableModule("zPos");
         this._attachEvent("zPosition");
+        this._console.onRequest((request, params, form, address) => {
+            if (request == "zPosition" && address == this._address) {
+                callback(params.value);
+            }
+        });
 
     }
 
     onVerticalDetector(callback: (vertical: boolean) => void) {
         this._enableModule("vDetct");
         this._attachEvent("verticalDetector");
+        this._console.onRequest((request, params, form, address) => {
+            if (request == "verticalDetector" && address == this._address) {
+                callback(params.value);
+            }
+        });
     }
 
     private _attachEvent(event: string) {
@@ -84,11 +93,13 @@ export class Device {
     }
 
     setColor(color: Color) {
+        console.log("Set Color")
         this._color = color;
         let request = new Message();
         request.addParam("color", color);
         request.setDestination(PeerType.DEVICE, this._address);
         request.setRequest("setColor");
+        console.log("Set Color request", request);
         this._console.sendMessage(request);
     }
 

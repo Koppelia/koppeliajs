@@ -3,6 +3,7 @@ import { Message, type MessageData, PeerType, MessageType } from './message.js'
 import type { AnyState } from './state.js';
 import { page } from '$app/stores';
 import { get } from 'svelte/store';
+import { routeType } from '../stores/routeStore.js';
 
 const PORT = 2225;
 
@@ -11,6 +12,7 @@ export type ChangeStageCallback = (from: string, stage: string) => void
 export type DataExchangeCallback = (from: string, data: any) => void
 export type DeviceEventCallback = (device: string, from_addr: string, event: string) => void
 export type DeviceDataCallback = (device: string, from_addr: string, event: string) => void
+export type AnyRequestCallback = (request: string, params: { [key: string]: any }, from: string, address: string) => void
 
 
 /**
@@ -24,6 +26,7 @@ export class Console {
     private _deviceEventHandlers: any[];
     private _deviceDataHandlers: any[];
     private _dataExchangeHandlers: any[];
+    private _anyRequestHandlers: AnyRequestCallback[];
     private _ready: boolean = false;
     private _onReadyCallback: (() => void)[];
 
@@ -40,6 +43,7 @@ export class Console {
         this._deviceDataHandlers = [];
         this._dataExchangeHandlers = [];
         this._onReadyCallback = []
+        this._anyRequestHandlers = []
 
         this._initEvents();
     }
@@ -50,6 +54,13 @@ export class Console {
      * @param callback the callback is called when websocket receives a response
      */
     sendMessage(message: Message, callback?: Callback) {
+        let route = PeerType.NONE;
+        if (get(routeType) == "monitor")
+            route = PeerType.MONITOR
+        else if (get(routeType) == "controller")
+            route = PeerType.CONTROLLER;
+
+        message.setSource(route, "")
         this.consoleSocket.send(message, callback)
     }
 
@@ -66,7 +77,7 @@ export class Console {
     getConnectedDevices() {
 
     }
-    
+
     /**
      * Send data to a peer
      * @param receiver 
@@ -85,7 +96,7 @@ export class Console {
     onStateChange(callback: ChangeStateCallback) {
         this._changeStateHandlers.push(callback);
     }
-    
+
     /**
      * Add a callback that will be executed when the current stage has changed
      * @param callback 
@@ -110,6 +121,10 @@ export class Console {
         this._deviceEventHandlers.push(callback);
     }
 
+    onRequest(callback: AnyRequestCallback) {
+        this._anyRequestHandlers.push(callback);
+    }
+
     /**
      * Get if the connection with the console is ready
      */
@@ -120,7 +135,7 @@ export class Console {
     private _initEvents() {
         this.consoleSocket.onOpen(() => {
             this._ready = true;
-            for(let callback of this._onReadyCallback) {
+            for (let callback of this._onReadyCallback) {
                 callback();
             }
         });
@@ -132,66 +147,75 @@ export class Console {
 
     private _processReceivedData(request: Message) {
         console.log("Receive new data from console", request);
-        if(request.header.type === undefined)
+        if (request.header.type === undefined)
             return;
-        
+
         let type = request.header.type;
         /* Handle specific requests */
-        if(type == MessageType.REQUEST) {
-            switch(request.request.exec) {
+        if (type == MessageType.REQUEST) {
+            switch (request.request.exec) {
                 case "changeState":
                     this._execChangeStateHandlers(request.header.from, request.request.params.state);
                     break;
                 case "changeStage":
                     this._execChangeStageHandlers(request.header.from, request.request.params.stage);
                     break;
+                default:
+                    this._execAnyRequestHandlers(request.request.exec, request.request.params, request.header.from, request.header.from_addr);
+                    break;
             }
         }
 
         /* Handle data exchange */
         else if (type == MessageType.DATA_EXCHANGE) {
-           this._execDataExchangeHandlers(request.header.from, request.data);
-        } 
-        
+            this._execDataExchangeHandlers(request.header.from, request.data);
+        }
+
         /* Handle device event */
         else if (type == MessageType.DEVICE_EVENT) {
-           this._execDeviceEventHandlers(request.header.device, request.header.from_addr, request.event);
-        } 
-        
+            this._execDeviceEventHandlers(request.header.device, request.header.from_addr, request.event);
+        }
+
         /* Handle device data */
         else if (type == MessageType.DEVICE_DATA) {
-           this._execDeviceDataHandlers(request.header.from_addr, request.data);
+            this._execDeviceDataHandlers(request.header.from_addr, request.data);
         }
 
     }
 
-    private _execDeviceDataHandlers (from_addr: string, data: any) {
-        for(let handler of this._deviceDataHandlers) {
+    private _execDeviceDataHandlers(from_addr: string, data: any) {
+        for (let handler of this._deviceDataHandlers) {
             handler(from_addr, data);
         }
     }
 
-    private _execDeviceEventHandlers (device: string, from_addr: string, event: string) {
-        for(let handler of this._deviceEventHandlers) {
+    private _execDeviceEventHandlers(device: string, from_addr: string, event: string) {
+        for (let handler of this._deviceEventHandlers) {
             handler(device, from_addr, event);
         }
     }
 
-    private _execChangeStateHandlers (from: string, state: AnyState) {
-        for(let handler of this._changeStateHandlers) {
+    private _execChangeStateHandlers(from: string, state: AnyState) {
+        for (let handler of this._changeStateHandlers) {
             handler(from, state);
         }
     }
 
-    private _execChangeStageHandlers (from: string, stage: string) {
-        for(let handler of this._changeStageHandlers) {
+    private _execChangeStageHandlers(from: string, stage: string) {
+        for (let handler of this._changeStageHandlers) {
             handler(from, stage);
         }
     }
 
-    private _execDataExchangeHandlers (from: string, data: any) {
-        for(let handler of this._dataExchangeHandlers) {
+    private _execDataExchangeHandlers(from: string, data: any) {
+        for (let handler of this._dataExchangeHandlers) {
             handler(from, data);
+        }
+    }
+
+    private _execAnyRequestHandlers(request: string, params: { [key: string]: any }, from: string, address: string) {
+        for (let handler of this._anyRequestHandlers) {
+            handler(request, params, from, address);
         }
     }
 
