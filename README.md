@@ -60,3 +60,36 @@ npm publish
 ```bash
 npm install --save-dev @types/node
 ```
+
+# Features of Koppeliajs
+## Monitor and Controller
+**Monitor**: This the screen shown on the tv
+
+**Controller**: This is the screen shown on the smartphone (Koppeli'App)
+
+KoppeliaJS provides tools
+
+## State management
+Manage the state of the game, change easily the state, and get all updates from the server
+
+## Stage management
+A stage is a part of the game (it is a page), when the stage changes, it changes for the controller and monitor
+
+## Device management
+Manage the devices connected to the console.
+
+## Play management
+Manage the plays of the game. You can create new plays for a specific game on KOppelia'App.
+
+## difficulty Cursor
+Change the difficulty of the game in real time. The DifficultyCurser option should be activated on KoppeliaJS.
+
+## Growable Element
+Growable elements are elements (generally text) that are shown on the monitor screen. Those elements can be expanded from the controller. They will take all the surface of the monitor screen.
+
+## Resizable Text
+Resizable text are text shwon on monitor screen and the font size can be changed in real time from Koppeli'App
+
+## ScrollSyncer
+
+## StageButton
