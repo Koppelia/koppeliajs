@@ -7,7 +7,7 @@ type OnGoingRequest = {
     callback?: Callback
 };
 
-const DEFAULT_WS_TIMEOUT = 2000;
+const DEFAULT_WS_TIMEOUT = 4000;
 
 
 export class KoppeliaWebsocket {

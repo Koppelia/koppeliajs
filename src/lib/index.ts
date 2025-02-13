@@ -6,6 +6,7 @@ import { Koppelia } from "./scripts/koppelia.js";
 import { Console } from "./scripts/console.js";
 import { Message } from "./scripts/message.js";
 import { Device } from "./scripts/device.js";
+import { Play } from "./scripts/play.js";
 
 import { updateRoute, routeType } from './stores/routeStore.js'
 import { gameState } from "./stores/stateStore.js";
@@ -14,4 +15,4 @@ import { gameState } from "./stores/stateStore.js";
 
 export { KBase }   // Compoenents
 
-export { updateRoute, routeType, Koppelia, Console, Message, Device, gameState };    //  libraries and stores
+export { updateRoute, routeType, Koppelia, Console, Message, Device, gameState, Play };    //  libraries and stores

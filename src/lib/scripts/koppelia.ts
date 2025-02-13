@@ -5,6 +5,8 @@ import { State, type AnyState } from "./state.js";
 import { Message, PeerType } from "./message.js";
 import { Stage } from "./stage.js";
 import { Device } from "./device.js"
+import { Play } from "./play.js"
+import { PUBLIC_GAME_ID } from '$env/static/public';
 
 
 export class Koppelia {
@@ -98,35 +100,62 @@ export class Koppelia {
      * Get the list of devices in a callback
      * @param callback 
      */
-    public getDevices(callback: (devices: Device[]) => void) {
-        // create the message to request the devices
-        let getDevicesRequest = new Message();
-        getDevicesRequest.setRequest("getDevices");
-        getDevicesRequest.setDestination(PeerType.MASTER, "");
-        
-        // send the message to the console
-        this._console.sendMessage(getDevicesRequest, (response: Message) => {
-            // convert the response to al list of device objects
-            let devices_raw: any = response.getParam("devices", []);
-            let devices: Device[] = [];
-            for(let device_raw of devices_raw) {
-                let device = new Device(this._console);
-                device.fromObject(device_raw);
-                devices.push(device);
-            }
-            callback(devices);
+    public async getDevices(): Promise<Device[]> {
+        return new Promise((resolve, reject) => {
+            // create the message to request the devices
+            let getDevicesRequest = new Message();
+            getDevicesRequest.setRequest("getDevices");
+            getDevicesRequest.setDestination(PeerType.MASTER, "");
+
+            // send the message to the console
+            this._console.sendMessage(getDevicesRequest, (response: Message) => {
+                // convert the response to al list of device objects
+                let devices_raw: any = response.getParam("devices", []);
+                let devices: Device[] = [];
+                for (let device_raw of devices_raw) {
+                    let device = new Device(this._console);
+                    device.fromObject(device_raw);
+                    devices.push(device);
+                }
+                resolve(devices);
+            });
+        });
+    }
+
+    /**
+     * Get the game ID of the current game
+     * @returns the game id as a string
+     */
+    public getGameId(): string {
+        return PUBLIC_GAME_ID
+    }
+
+    /**
+     * Get the list of plays
+     * @param count limit of plays to get
+     * @param index index from which to start fetching the plays
+     * @param orderBy order by date or name
+     * @returns the List of plays an array of objects of type Play
+     */
+    public async getPlays(count: number = 10, index: number = 0, orderBy: string = "date"): Promise<Play[]> {
+        return new Promise((resolve, reject) => {
+            let getPlaysRequest = new Message()
+            getPlaysRequest.setRequest("getPlaysList");
+            getPlaysRequest.addParam("gameId", this.getGameId());
+            getPlaysRequest.addParam("count", count);
+            getPlaysRequest.addParam("index", index);
+            getPlaysRequest.addParam("orderBy", orderBy);
+            getPlaysRequest.setDestination(PeerType.MASTER, "");
+            this._console.sendMessage(getPlaysRequest, (response: Message) => {
+                let playsRawList: { [key: string]: any } = response.getParam("plays", {});
+                let plays: Play[] = [];
+                for (let playId in playsRawList) {
+                    plays.push(new Play(this._console, playId, playsRawList[playId]))
+                }
+                resolve(plays);
+            });
         });
 
     }
-
-
-
-
-
-
-
-
-
-
 
 }
