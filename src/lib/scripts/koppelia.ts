@@ -1,6 +1,6 @@
 import { get, type Writable } from "svelte/store";
 import { routeType } from "../stores/routeStore.js";
-import { Console } from "./console.js";
+import { Console, type AnyRequestCallback } from "./console.js";
 import { State, type AnyState } from "./state.js";
 import { Message, PeerType } from "./message.js";
 import { Stage } from "./stage.js";
@@ -156,6 +156,70 @@ export class Koppelia {
             });
         });
 
+    }
+
+    /**
+     * This function enables the difficulty cursor, to change the difficulty in live when playing from Koppeli'App
+     * @param callback : callback to call when difficulty changes
+     */
+    public async enableDifficultyCursor(callback: (difficulty: number) => void) {
+
+    }
+
+    /**
+     * 
+     * @param id 
+     * @param onGrowChange 
+     */
+    public async registerNewGrowableElement(id: string, onGrowChange: (grown: boolean) => void): Promise<void> {
+        return new Promise((resolve, reject) => {
+            // create the message to request the devices
+            if (get(routeType) == "controller") {
+                let addGrowableElRequest = new Message();
+                addGrowableElRequest.setRequest("addGrowableElement");
+                addGrowableElRequest.addParam("id", id);
+                addGrowableElRequest.setDestination(PeerType.MASTER, "");
+
+                // send the message to the console (only the controller sends the )
+                this._console.sendMessage(addGrowableElRequest, (response: Message) => {
+                });
+            }
+
+            this._console.onRequest((req: string, params: { [key: string]: any }) => {
+                if (req == "gowableElementNotification") {
+                    if (params.id !== undefined && params.id == id) {
+                        let grown = false;
+                        if (params.grown != undefined) grown = params.grown;
+                        onGrowChange(grown);
+                    }
+                }
+
+            })
+
+            resolve();
+        });
+    }
+
+    /**
+     * 
+     * @param id 
+     * @param grown 
+     */
+    public async updateGrowableElement(id: string, grown: boolean): Promise<void> {
+        return new Promise((resolve, reject) => {
+            // create the message to request the devices
+            let addGrowableElRequest = new Message();
+            addGrowableElRequest.setRequest("updateGrowableElement");
+            addGrowableElRequest.addParam("id", id);
+            addGrowableElRequest.addParam("grown", grown);
+            addGrowableElRequest.setDestination(PeerType.MASTER, "");
+
+            // send the message to the console
+            this._console.sendMessage(addGrowableElRequest, (response: Message) => {
+
+                resolve();
+            });
+        });
     }
 
 }
