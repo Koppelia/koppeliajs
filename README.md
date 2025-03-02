@@ -93,3 +93,18 @@ Resizable text are text shwon on monitor screen and the font size can be changed
 ## ScrollSyncer
 
 ## StageButton
+
+# Start a new project with Koppelia js
+
+## Create a new project with npm
+
+## Install sveltekit library
+
+## Install koppeliajs library
+
+## Minimum required files (file tree)
+
+## Run your game
+
+## dockerize
+
