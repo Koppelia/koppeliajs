@@ -7,6 +7,7 @@
 	$: grownClass = '';
 
 	let koppelia = Koppelia.instance;
+	
 	koppelia.onReady(async () => {
 		await koppelia.registerNewGrowableElement(id, (grown: boolean) => {
 			grownClass = grown ? 'top-growable-grown' : '';
