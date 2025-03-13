@@ -1,5 +1,7 @@
 // Reexport your entry components here
 
+import "./styles/fonts.css"
+
 import KBase from "./components/KBase.svelte";
 import GrowableElement from "./components/GrowableElement.svelte";
 
