@@ -33,14 +33,23 @@ export class Device {
         this._attachedEvents = []
     }
 
-    public set color(color: Color) {
-        this._color = color;
-        // TODO : send a request to change the color
+    // public set color(color: Color) {
+    //     this._color = color;
+    //     // TODO : send a request to change the color
 
-    }
+    // }
 
     public get color(): Color {
         return this._color;
+    }
+
+    // public set name(name: string) {
+    //     this._name = name;
+    //     // TODO : send a request to change the name
+    // }
+
+    public get name(): string {
+        return this._name;
     }
 
     ping() {
