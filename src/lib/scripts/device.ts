@@ -58,7 +58,11 @@ export class Device {
 
     onEvent(eventName: string, callback: () => void) {
         this._attachEvent(eventName);
-        this._console.onDeviceEvent(callback);
+        let consoleEvent = (device: string, from_addr: string, event: string) => {
+            if (event == eventName && from_addr == this._address)
+                callback();
+        }
+        this._console.onDeviceEvent(consoleEvent);
     }
 
     onZPosition(callback: (z: number) => void) {

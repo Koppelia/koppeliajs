@@ -117,7 +117,7 @@ export class Console {
             callback();
     }
 
-    onDeviceEvent(callback: () => void) {
+    onDeviceEvent(callback: DeviceEventCallback) {
         this._deviceEventHandlers.push(callback);
     }
 
