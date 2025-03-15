@@ -3,7 +3,7 @@ import { Message } from "./message.js";
 import { get, writable, type Writable } from "svelte/store";
 
 
-export type AnyState = { [key: string]: string }
+export type AnyState = { [key: string]: any }
 
 export class State {
     private _globalState: Writable<AnyState>;

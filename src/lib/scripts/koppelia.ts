@@ -131,11 +131,12 @@ export class Koppelia {
     }
 
     /**
-     * Get the list of plays
+     * Get the list of plays, the plays returned by this function doesn't include the raw
+     * You have to call a function in from the play object to download all the raw files
      * @param count limit of plays to get
      * @param index index from which to start fetching the plays
      * @param orderBy order by date or name
-     * @returns the List of plays an array of objects of type Play
+     * @returns the List of plays an array of objects of type Play, 
      */
     public async getPlays(count: number = 10, index: number = 0, orderBy: string = "date"): Promise<Play[]> {
         return new Promise((resolve, reject) => {
@@ -156,6 +157,25 @@ export class Koppelia {
             });
         });
 
+    }
+
+    /**
+     * Get the current play that has been set 
+     * @returns the current play
+     */
+    public async getCurrentPlay(): Promise<Play> {
+        return new Promise((resolve, reject) => {
+            let getCuurentPlayRequest = new Message()
+            getCuurentPlayRequest.setRequest("getCurrentPlay");
+            getCuurentPlayRequest.setDestination(PeerType.MASTER, "");
+            this._console.sendMessage(getCuurentPlayRequest, (response: Message) => {
+                let playData = response.getParam("play", {});
+                let playId = response.getParam("playId", "");
+                let play = new Play(this._console, playId, playData);
+                resolve(play);
+            });
+
+        });
     }
 
     /**
