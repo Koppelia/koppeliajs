@@ -1,6 +1,6 @@
 {
 	"name": "@momo2555/koppeliajs",
-	"version": "0.0.99",
+	"version": "0.0.104",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run package",
@@ -61,6 +61,7 @@
 	},
 	"dependencies": {
 		"express": "^4.21.2",
-		"fs": "^0.0.1-security"
+		"fs": "^0.0.1-security",
+		"uuid": "^11.1.0"
 	}
 }
