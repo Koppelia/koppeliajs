@@ -32,7 +32,10 @@ export class Console {
 
 
     constructor() {
-        this.consoleHostname = get(page).url.hostname;
+        this.consoleHostname = "";
+        if (!import.meta.env.SSR) {
+           this.consoleHostname = window.location.hostname;
+        }
         let consoleUrl = "ws://" + this.consoleHostname + ":" + PORT;
         this.consoleSocket = new KoppeliaWebsocket(consoleUrl);
         this._ready = false;
