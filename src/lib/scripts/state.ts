@@ -10,11 +10,13 @@ export class State {
     private _console: Console
     private _access: boolean = true;
     private _previousStateValue: AnyState = {}
+    private _forceState: boolean;
 
     constructor(console: Console, defaultState: AnyState = {}) {
         this._access = false;
         this._globalState = writable(defaultState);
         this._console = console;
+        this._forceState = false; // force the state without update
 
         this._initEvents();
         this._access = true;
@@ -40,7 +42,8 @@ export class State {
      * Force change the state with a new one
      * @param newState 
      */
-    public setState(newState: AnyState) {
+    public setState(newState: AnyState, force: boolean = false) {
+        this._forceState = force; // if force to true -> force the state to be sent entirely instead of sending an update
         this._globalState.set(newState);
     }
 
@@ -80,6 +83,11 @@ export class State {
                     if (!Object.hasOwn(this._previousStateValue, entry)) {
                         update[entry] = newState[entry];
                     }
+                    else if (Array.isArray(newState[entry])) {
+                        if(JSON.stringify(this._previousStateValue[entry]) != JSON.stringify(newState[entry])) {
+                            update[entry] = newState[entry];
+                        }
+                    }
                     else if (this._previousStateValue[entry] != newState[entry]) {
                         update[entry] = newState[entry];
                     }
@@ -88,11 +96,13 @@ export class State {
                 this._previousStateValue = structuredClone(newState);
                 this._console.onReady(() => {
 
-                    
+
                     let req = new Message();
                     req.setRequest("changeState");
                     req.addParam("state", update);
-                    req.addParam("update", true);
+
+                    req.addParam("update", !this._forceState);
+                    this._forceState = false;
                     this._console.sendMessage(req);
 
                 });
@@ -110,6 +120,7 @@ export class State {
             let state = get(this._globalState);
             for (let entry in receivedState) {
                 state[entry] = receivedState[entry];
+                this._previousStateValue[entry] = structuredClone(receivedState[entry]);
             }
             this._globalState.set(state);
         } else {

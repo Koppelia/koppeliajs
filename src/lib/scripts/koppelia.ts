@@ -80,7 +80,7 @@ export class Koppelia {
         this._console.onReady(() => {
             let type = get(routeType);
             if (type == "controller") {
-                this._state.setState(defaultState); // set the state
+                this._state.setState(defaultState, true); // set the state
                 this._stage.initStages(stages); // init the list of stages
             }
         });
