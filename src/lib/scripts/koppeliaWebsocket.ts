@@ -58,7 +58,6 @@ export class KoppeliaWebsocket {
         // Send the request
         const serializedMessage = JSON.stringify(data.toObject());
         console.log("sending message", serializedMessage);
-        console.log(this.socket);
         this.socket.send(serializedMessage);
         // set a timeout
         window.setTimeout(() => this._deleteRequest(data.getRequestId()), this.timeout);;

@@ -7,7 +7,7 @@ import { routeType } from '../stores/routeStore.js';
 
 const PORT = 2225;
 
-export type ChangeStateCallback = (from: string, state: AnyState) => void
+export type ChangeStateCallback = (from: string, state: AnyState, update:boolean) => void
 export type ChangeStageCallback = (from: string, stage: string) => void
 export type DataExchangeCallback = (from: string, data: any) => void
 export type DeviceEventCallback = (device: string, from_addr: string, event: string) => void
@@ -158,7 +158,8 @@ export class Console {
         if (type == MessageType.REQUEST) {
             switch (request.request.exec) {
                 case "changeState":
-                    this._execChangeStateHandlers(request.header.from, request.request.params.state);
+                    let update = request.getParam("update", false);
+                    this._execChangeStateHandlers(request.header.from, request.request.params.state, update);
                     break;
                 case "changeStage":
                     this._execChangeStageHandlers(request.header.from, request.request.params.stage);
@@ -198,9 +199,9 @@ export class Console {
         }
     }
 
-    private _execChangeStateHandlers(from: string, state: AnyState) {
+    private _execChangeStateHandlers(from: string, state: AnyState, update: boolean) {
         for (let handler of this._changeStateHandlers) {
-            handler(from, state);
+            handler(from, state, update);
         }
     }
 

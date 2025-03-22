@@ -9,6 +9,7 @@ export class State {
     private _globalState: Writable<AnyState>;
     private _console: Console
     private _access: boolean = true;
+    private _previousStateValue: AnyState = {}
 
     constructor(console: Console, defaultState: AnyState = {}) {
         this._access = false;
@@ -31,7 +32,7 @@ export class State {
         req.setRequest("getState");
         this._console.sendMessage(req, (response: Message) => {
             let state = response.getParam('state', {});
-            this._onReceiveState(response.header.from, state);
+            this._onReceiveState(response.header.from, state, false);
         });
     }
 
@@ -67,24 +68,35 @@ export class State {
         });
 
         // update the state when receive a change from console
-        this._console.onStateChange((from, state) => {
-            this._onReceiveState(from, state);
+        this._console.onStateChange((from, state, update) => {
+            this._onReceiveState(from, state, update);
         });
 
         // Send a change state request when detect a state change
         this._globalState.subscribe((newState: AnyState) => {
             if (this._access) {
+                let update: { [key: string]: any } = {};
+                for (let entry in newState) {
+                    if (!Object.hasOwn(this._previousStateValue, entry)) {
+                        update[entry] = newState[entry];
+                    }
+                    else if (this._previousStateValue[entry] != newState[entry]) {
+                        update[entry] = newState[entry];
+                    }
+                }
+                console.log("change state NewState=", newState, "; update=", update, " currentState=", this._previousStateValue);
+                this._previousStateValue = structuredClone(newState);
                 this._console.onReady(() => {
 
-                    console.log("change state new state", newState)
+                    
                     let req = new Message();
                     req.setRequest("changeState");
-                    req.addParam("state", newState);
+                    req.addParam("state", update);
+                    req.addParam("update", true);
                     this._console.sendMessage(req);
 
                 });
             }
-
         });
 
     }
@@ -92,9 +104,17 @@ export class State {
     /**
      * callback when a new state 
      */
-    private _onReceiveState(from: string, receivedState: AnyState) {
+    private _onReceiveState(from: string, receivedState: AnyState, update: boolean) {
         this._access = false;
-        this._globalState.set(receivedState);
+        if (update) {
+            let state = get(this._globalState);
+            for (let entry in receivedState) {
+                state[entry] = receivedState[entry];
+            }
+            this._globalState.set(state);
+        } else {
+            this._globalState.set(receivedState);
+        }
         this._access = true;
     }
 }

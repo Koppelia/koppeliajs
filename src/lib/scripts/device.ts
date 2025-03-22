@@ -106,13 +106,11 @@ export class Device {
     }
 
     setColor(color: Color) {
-        console.log("Set Color")
         this._color = color;
         let request = new Message();
         request.addParam("color", color);
         request.setDestination(PeerType.DEVICE, this._address);
         request.setRequest("setColor");
-        console.log("Set Color request", request);
         this._console.sendMessage(request);
     }
 
