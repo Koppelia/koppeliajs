@@ -1,6 +1,6 @@
+import { v4 as uuidv4 } from 'uuid';
 
 export type AnyRequest = { [key: string]: any };
-
 
 export enum PeerType {
     MONITOR = "monitor",
@@ -206,7 +206,7 @@ export class Message {
     }
 
     generateRequestId() {
-        this.header.id = crypto.randomUUID();;
+        this.header.id = uuidv4();
     }
 
     getRequestId(): string {
