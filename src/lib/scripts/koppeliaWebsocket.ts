@@ -15,6 +15,7 @@ export class KoppeliaWebsocket {
     onGoingRequests: OnGoingRequest[];
     timeout: number
     receiveCallbacks: Callback[]
+    websocketUrl: string = "";
     openCallback?: () => void;
 
     /* ------ PUBLIC ------ */
@@ -26,16 +27,17 @@ export class KoppeliaWebsocket {
      */
     public constructor(websocketUrl: string, timeout: number = DEFAULT_WS_TIMEOUT) {
         if (!import.meta.env.SSR) {
-            this.socket = new WebSocket(websocketUrl);
+            this._connectWebsocket(websocketUrl);
             console.log("Open new Koppelia websocket connection successfully with url ", websocketUrl);
             this._setupEvents();
         }
-            
+
         else console.log("Koppelia websocket not accessible during server rendering");
 
         this.onGoingRequests = [];
         this.timeout = timeout;
         this.receiveCallbacks = [];
+        this.websocketUrl = websocketUrl;
 
     }
 
@@ -80,12 +82,8 @@ export class KoppeliaWebsocket {
 
     /* ------ PRIVATE ------ */
 
-    /**
-     * Generate a new request Id
-     * @returns (string): a nex resuest id
-     */
-    private _generateRequestId(): string {
-        return crypto.randomUUID();
+    private _connectWebsocket(websockerUrl: string): void {
+        this.socket = new WebSocket(websockerUrl);
     }
 
     /**
@@ -112,7 +110,7 @@ export class KoppeliaWebsocket {
                 this._deleteRequest(message.getRequestId());
                 return
             }
-        } 
+        }
 
         for (let callback of this.receiveCallbacks) {
             callback!(message);
@@ -138,8 +136,15 @@ export class KoppeliaWebsocket {
         this.socket.addEventListener('message', (e: MessageEvent) => {
             let data = JSON.parse(e.data);
             this._handleWebsocketResponse(data);
-           
+
         });
+
+        // handle connection close (if an error occure)
+        this.socket.onclose = (event: CloseEvent) => {
+            console.log(`Connection closed ${event.reason}, code=${event.code}, retry onnection ...`)
+            setTimeout(() => { this._connectWebsocket(this.websocketUrl); this._setupEvents(); }, 1000);
+        };
+
     }
 
     /**
@@ -155,7 +160,7 @@ export class KoppeliaWebsocket {
             }
             return element.requestId === requestId;
         });
-    } 
+    }
 
     /**
      * Delete the request from the list of onGoing Requests
