@@ -179,7 +179,7 @@ export class Koppelia {
     }
 
     /**
-     * This function enables the difficulty cursor, to change the difficulty in live when playing from Koppeli'App
+     * This function enables the difficulty cursor, to change the difficulty live when playing from Koppeli'App
      * @param callback : callback to call when difficulty changes
      */
     public async enableDifficultyCursor(callback: (difficulty: number) => void) {
@@ -239,6 +239,39 @@ export class Koppelia {
 
                 resolve();
             });
+        });
+    }
+
+    /**
+     * Add a new resizable text element and define the callback that will be executed when receive and a resizable 
+     * text update notification form koppelia application
+     */
+    public async registerNewResizableText(id: string, defaultSize: number, onTextResized: (newSize: number) => void): Promise<void> {
+        return new Promise((resolve, reject) => {
+            if (get(routeType) == "monitor") {
+                let addGrowableElRequest = new Message();
+                addGrowableElRequest.setRequest("addResizableText");
+                addGrowableElRequest.addParam("id", id);
+                addGrowableElRequest.addParam("defaultSize", defaultSize);
+                addGrowableElRequest.setDestination(PeerType.MASTER, "");
+
+                // send the message to the console (only the controller sends the )
+                this._console.sendMessage(addGrowableElRequest, (response: Message) => {
+                });
+            }
+
+            this._console.onRequest((req: string, params: { [key: string]: any }) => {
+                if (req == "resizableTextNotification") {
+                    if (params.id !== undefined && params.id == id) {
+                        let fontSize = defaultSize;
+                        if (params.fontSize != undefined) fontSize = params.fontSize;
+                        onTextResized(fontSize);
+                    }
+                }
+
+            })
+
+            resolve();
         });
     }
 
