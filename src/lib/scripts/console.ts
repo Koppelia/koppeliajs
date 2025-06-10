@@ -6,13 +6,16 @@ import { get } from 'svelte/store';
 import { routeType } from '../stores/routeStore.js';
 
 const PORT = 2225;
+const API_PORT = 8000;
 
-export type ChangeStateCallback = (from: string, state: AnyState, update:boolean) => void
+export type ChangeStateCallback = (from: string, state: AnyState, update: boolean) => void
 export type ChangeStageCallback = (from: string, stage: string) => void
 export type DataExchangeCallback = (from: string, data: any) => void
 export type DeviceEventCallback = (device: string, from_addr: string, event: string) => void
 export type DeviceDataCallback = (device: string, from_addr: string, event: string) => void
 export type AnyRequestCallback = (request: string, params: { [key: string]: any }, from: string, address: string) => void
+
+export type MediaResponseData = string | Blob | ArrayBuffer | any;
 
 
 /**
@@ -29,15 +32,17 @@ export class Console {
     private _anyRequestHandlers: AnyRequestCallback[];
     private _ready: boolean = false;
     private _onReadyCallback: (() => void)[];
+    private _mediaApiUrl: string;
 
 
     constructor() {
         this.consoleHostname = "";
         if (!import.meta.env.SSR) {
-           this.consoleHostname = window.location.hostname;
+            this.consoleHostname = window.location.hostname;
         }
         let consoleUrl = "ws://" + this.consoleHostname + ":" + PORT;
         this.consoleSocket = new KoppeliaWebsocket(consoleUrl);
+        this._mediaApiUrl = "http://" + this.consoleHostname + ":" + API_PORT;
         this._ready = false;
 
         this._changeStateHandlers = [];
@@ -133,6 +138,31 @@ export class Console {
      */
     public get ready(): boolean {
         return this._ready;
+    }
+
+    public getMediaUrl(path: string) {
+        if (!path.startsWith("/")) path = "/" + path;
+        return this._mediaApiUrl + path;
+    }
+
+    public async getMedia(path: string): Promise<MediaResponseData> {
+        const response = await fetch(this.getMediaUrl(path));
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const contentType = response.headers.get("Content-Type") || "";
+
+        if (contentType.includes("application/json")) {
+            return await response.json(); // Object
+        } else if (contentType.startsWith("text/")) {
+            return await response.text(); // String
+        } else if (contentType.startsWith("image/") || contentType.includes("application/octet-stream")) {
+            return await response.blob(); // Blob (images, downloads, etc.)
+        } else {
+            return await response.arrayBuffer(); // Generic binary
+        }
     }
 
     private _initEvents() {

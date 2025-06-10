@@ -1,5 +1,6 @@
 import { Console } from "./console.js";
 import { Message, PeerType } from "./message.js";
+import type { MediaResponseData } from "./console.js";
 
 export class Play {
     private _playCreationDate: string = "";
@@ -13,79 +14,46 @@ export class Play {
     private _playMedias: string[] = [];
     private _playName: string = "";
     private _playId: string = "";
-    private _playData: { [key: string]: any } = {};
-    private _base64Medias: { [key: string]: any } = {};
+    private _playData: string = "";
     private _console: Console;
     private _refreshed: boolean = true;
 
     constructor(console: Console, playId: string, playRawObj: { [key: string]: any }) {
         this._console = console;
         this._playId = playId;
-        if (playRawObj._play_data_json !== undefined) {
-            this._playData = playRawObj._play_data_json;
-            this._refreshed = true;
-        };
-        if (playRawObj._play_medias_raw !== undefined) {
-            this._base64Medias = playRawObj._play_medias_raw;
-        }
         if (playRawObj.playName !== undefined) {
             this._playName = playRawObj.playName;
         }
-        if (playRawObj.playMedias !== undefined) {
-            this._playMedias = playRawObj.playMedias;
+        if (playRawObj.playGameId !== undefined) {
+            this._playGameId = playRawObj.playGameId;
         }
-        if (playRawObj._play_image_raw !== undefined) {
-            this._playImagebase64 = playRawObj._play_image_raw;
+        if (playRawObj.playData !== undefined) {
+            this._playData = playRawObj.playData;
         }
     }
 
-    public async refresh(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            let getPlaysRequest = new Message()
-            getPlaysRequest.setRequest("getPlayRaw");
-            getPlaysRequest.addParam("playId", this.id);
-            getPlaysRequest.setDestination(PeerType.MASTER, "");
-            this._console.sendMessage(getPlaysRequest, (response: Message) => {
-                let playRawObj: { [key: string]: any } = response.getParam("play", {});
-                if (playRawObj._play_data_json !== undefined) {
-                    this._playData = playRawObj._play_data_json;
-                    this._refreshed = true;
-                };
-                if (playRawObj._play_medias_raw !== undefined) {
-                    this._base64Medias = playRawObj._play_medias_raw;
-                }
-                if (playRawObj._play_image_raw !== undefined) {
-                    this._playImagebase64 = playRawObj._play_image_raw;
-                }
-                resolve();
-            });
-        });
+    public getPlayMediaPath(mediaName: string): string {
+        return `game/${this._playGameId}/play/${this._playId}/${mediaName}`;
     }
 
-    /**
-     * Get the list of all media files of the play
-     */
-    public get mediasList(): string[] {
-        return Object.keys(this._base64Medias);
+    public getMediaLink(mediaName: string): string {
+        let mediaPath = this.getPlayMediaPath(mediaName);
+        return this._console.getMediaUrl(mediaPath);
     }
 
-    /**
-     * Get the media file by using its name. This function returns a base64 file
-     * @param mediaName 
-     * @returns 
-     */
-    public getMedia(mediaName: string): string | undefined {
-        if (this._base64Medias[mediaName] !== undefined) {
-            return this._base64Medias[mediaName];
-        } else {
-            return undefined;
-        }
+    public async getMediaContent(mediaName: string): Promise<MediaResponseData> {
+        let mediaPath = this.getPlayMediaPath(mediaName);
+        return await this._console.getMedia(mediaPath);
+    }
+
+    public async getMediaData(): Promise<{ [key: string]: any }> {
+        return await this.getMediaContent(this._playData);
     }
 
     /**
      * Get the data of the play
      */
-    public get data(): { [key: string]: any } {
+    public get data(): string {
         return this._playData;
     }
 
