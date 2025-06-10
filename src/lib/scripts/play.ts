@@ -5,7 +5,6 @@ import type { MediaResponseData } from "./console.js";
 export class Play {
     private _playCreationDate: string = "";
     private _playCreatorId: string = "";
-    private _playFileName: string = "";
     private _playGameId: string = "";
 
     private _playIsPrivate: string = "";
@@ -14,26 +13,26 @@ export class Play {
     private _playMedias: string[] = [];
     private _playName: string = "";
     private _playId: string = "";
-    private _playData: string = "";
+    private _playFileName: string = "";
     private _console: Console;
     private _refreshed: boolean = true;
 
     constructor(console: Console, playId: string, playRawObj: { [key: string]: any }) {
         this._console = console;
         this._playId = playId;
-        if (playRawObj.playName !== undefined) {
-            this._playName = playRawObj.playName;
+        if (playRawObj.play_name !== undefined) {
+            this._playName = playRawObj.play_name;
         }
-        if (playRawObj.playGameId !== undefined) {
-            this._playGameId = playRawObj.playGameId;
+        if (playRawObj.play_game_id !== undefined) {
+            this._playGameId = playRawObj.play_game_id;
         }
-        if (playRawObj.playData !== undefined) {
-            this._playData = playRawObj.playData;
+        if (playRawObj.play_file_name  !== undefined) {
+            this._playFileName = playRawObj.play_file_name;
         }
     }
 
     public getPlayMediaPath(mediaName: string): string {
-        return `game/${this._playGameId}/play/${this._playId}/${mediaName}`;
+        return `media/game/${this._playGameId}/play/${this._playId}/${mediaName}`;
     }
 
     public getMediaLink(mediaName: string): string {
@@ -47,14 +46,14 @@ export class Play {
     }
 
     public async getMediaData(): Promise<{ [key: string]: any }> {
-        return await this.getMediaContent(this._playData);
+        return await this.getMediaContent(this._playFileName);
     }
 
     /**
      * Get the data of the play
      */
     public get data(): string {
-        return this._playData;
+        return this._playFileName;
     }
 
     /**
