@@ -96,6 +96,10 @@ export class Koppelia {
         this._stage.goto(stageName);
     }
 
+    public fixMediaUrl(mediaUrl: string): string {
+        return this._console.fixMediaUrl(mediaUrl)
+    }
+
     /**
      * Get the list of devices in a callback
      * @param callback 

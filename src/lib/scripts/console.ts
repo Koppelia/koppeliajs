@@ -140,9 +140,24 @@ export class Console {
         return this._ready;
     }
 
-    public getMediaUrl(path: string) {
+    public getMediaUrl(path: string): string {
         if (!path.startsWith("/")) path = "/" + path;
         return this._mediaApiUrl + path;
+    }
+
+    /**
+     * Call thus function to fix the link and make it work for both controller and monitor
+     * Sometimes, the link is get from monitor or controller and save as a game state. But
+     * When the oher client will get the link will not work. Using this function for all media
+     * Url is a good practice.
+     * @param mediaUrl 
+     */
+    public fixMediaUrl(mediaUrl: string): string {
+        let url = new URL(mediaUrl);
+        let fixedurl = new URL(this._mediaApiUrl);
+        fixedurl.pathname = url.pathname;
+        fixedurl.search = url.search;
+        return fixedurl.toString();
     }
 
     public async getMedia(path: string): Promise<MediaResponseData> {
