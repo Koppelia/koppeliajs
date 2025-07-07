@@ -7,6 +7,7 @@ import { Stage } from "./stage.js";
 import { Device } from "./device.js"
 import { Play } from "./play.js"
 import { PUBLIC_GAME_ID } from '$env/static/public';
+import { Resident } from "./resident.js";
 
 
 export class Koppelia {
@@ -89,6 +90,7 @@ export class Koppelia {
 
     /**
      * Go to a stage, the stage must be in the stage list
+     * Before changing the staging all callbacks will be destroyed
      * If the stage list is empty the console will return an error
      * @param stageName 
      */
@@ -98,6 +100,10 @@ export class Koppelia {
 
     public fixMediaUrl(mediaUrl: string): string {
         return this._console.fixMediaUrl(mediaUrl)
+    }
+
+    public getMediaLink(path: string): string {
+        return this._console.getMediaUrl(path);
     }
 
     /**
@@ -161,6 +167,24 @@ export class Koppelia {
             });
         });
 
+    }
+
+    public async getResidents(): Promise<Resident[]> {
+        return new Promise((resolve, reject) => {
+            let getResidentsRequest = new Message()
+            getResidentsRequest.setRequest("getResidentsList");
+            getResidentsRequest.setDestination(PeerType.MASTER, "");
+            this._console.sendMessage(getResidentsRequest, (response: Message) => {
+                let ResidentRawList: { [key: string]: any } = response.getParam("residents", {});
+                let residents: Resident[] = [];
+                for (let residentId in ResidentRawList) {
+                    let resident = new Resident();
+                    resident.fromObject(ResidentRawList[residentId]);
+                    residents.push(resident)
+                }
+                resolve(residents);
+            });
+        });
     }
 
     /**

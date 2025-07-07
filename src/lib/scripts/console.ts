@@ -268,4 +268,13 @@ export class Console {
         }
     }
 
+    public destroyEvents() {
+        this._deviceEventHandlers = [];
+        this._deviceDataHandlers = [];
+        this._dataExchangeHandlers = [];
+        this._anyRequestHandlers = [];
+
+        console.log("destroy events event handlers");
+    }
+
 }

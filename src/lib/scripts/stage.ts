@@ -42,6 +42,9 @@ export class Stage {
     }
 
     private _onReceiveStage(from: string, receivedStage: string) {
+        // Destroy all events before changing stage
+        this._console.destroyEvents();
+        
         let path = "/game/" + get(routeType) + "/" + receivedStage;
         goto(path);
     }

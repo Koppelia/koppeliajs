@@ -1,6 +1,7 @@
 
 import { Console } from './console.js';
 import { Message, MessageType, PeerType } from './message.js';
+import { Resident } from './resident.js';
 
 /**
  * This class reprensts a device
@@ -24,6 +25,8 @@ export class Device {
     private _name: string
     private _console: Console
     private _attachedEvents: string[]
+    private _resident?: Resident;
+    private isAttachedToResident: boolean;
 
     constructor(console: Console, address = "") {
         this._address = address;
@@ -31,6 +34,7 @@ export class Device {
         this._name = "";
         this._console = console
         this._attachedEvents = []
+        this.isAttachedToResident = false;
     }
 
     // public set color(color: Color) {
@@ -166,5 +170,18 @@ export class Device {
         if (object.name !== undefined) {
             this._name = object.name;
         }
+        if (object.resident !== undefined) {
+            this.isAttachedToResident = true;
+            this._resident = new Resident();
+            this._resident.fromObject(object.resident);
+        }
     }
+
+    public get resident(): Resident | undefined {
+        return this._resident;
+    }
+
+    public get isAssociatedToResident(): boolean {
+        return this.isAttachedToResident;
+    } 
 }
