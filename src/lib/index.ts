@@ -15,10 +15,10 @@ import { Play } from "./scripts/play.js";
 import { Resident } from "./scripts/resident.js";
 
 import { updateRoute, routeType } from './stores/routeStore.js';
-import { audioManager  } from '.,/stores/audioManager.js';
+import { audioManager, AudioManager  } from './stores/audioManager.js';
 
 
 
 export { KBase, GrowableElement, Button, ResizableText }   // Compoenents
 
-export { updateRoute, routeType, Koppelia, Console, Message, Device, Play, audioManager, Resident};    //  libraries and stores
+export { updateRoute, routeType, Koppelia, Console, Message, Device, Play, audioManager, Resident, AudioManager};    //  libraries and store

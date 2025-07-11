@@ -36,7 +36,7 @@ class AudioInstance {
 	}
 }
 
-class AudioManager {
+export class AudioManager {
 	private players: Map<string, AudioInstance> = new Map();
 
 	/**
