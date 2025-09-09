@@ -20,14 +20,14 @@ export class Play {
     constructor(console: Console, playId: string, playRawObj: { [key: string]: any }) {
         this._console = console;
         this._playId = playId;
-        if (playRawObj.play_name !== undefined) {
-            this._playName = playRawObj.play_name;
+        if (playRawObj.name !== undefined) {
+            this._playName = playRawObj.name;
         }
-        if (playRawObj.play_game_id !== undefined) {
-            this._playGameId = playRawObj.play_game_id;
+        if (playRawObj.game_id !== undefined) {
+            this._playGameId = playRawObj.game_id;
         }
-        if (playRawObj.play_file_name  !== undefined) {
-            this._playFileName = playRawObj.play_file_name;
+        if (playRawObj.file_name  !== undefined) {
+            this._playFileName = playRawObj.file_name;
         }
     }
 

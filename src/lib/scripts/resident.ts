@@ -25,10 +25,10 @@ export class Resident {
     }
 
     public fromObject(object: {[key: string]: string}) {
-        this._name = object["resident_name"];
-        this._id = object["resident_id"];
-        this._image = object["resident_image"];
-        this._residenceId = object["resident_residence_id"];
+        this._name = object["name"];
+        this._id = object["id"];
+        this._image = object["image"];
+        this._residenceId = object["residence_id"];
     }
 
 }

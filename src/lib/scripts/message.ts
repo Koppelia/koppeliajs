@@ -15,13 +15,15 @@ export enum PeerType {
 export enum MessageType {
     EMPTY = "empty",
     REQUEST = "request",
+    STREAM_RESPONSE = "stream_response",
     RESPONSE = "response",
     DATA_EXCHANGE = "data_exchange",
     DEVICE_EVENT = "device_event",
     DEVICE_DATA = "device_data",
     IDENTIFICATION = "identification",
     MODULE_ENABLE = "module_enable",
-    ERROR = "error"
+    ERROR = "error",
+    CLOSE = "close"
 }
 
 type MessagetHeader = {
