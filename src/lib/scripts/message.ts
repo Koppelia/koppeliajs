@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 export type AnyRequest = { [key: string]: any };
 
 export enum PeerType {
+    MAESTRO = "maestro",
     MONITOR = "monitor",
     MASTER = "master",
     CONTROLLER = "controller",

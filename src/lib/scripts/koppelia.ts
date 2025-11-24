@@ -303,4 +303,19 @@ export class Koppelia {
         });
     }
 
+     /**
+     * 
+     * @param sentence 
+     */
+    public say(sentence: string) {
+            // create the message to request the devices
+            let sayRequest = new Message();
+            sayRequest.setRequest("sayRequest");
+            sayRequest.addParam("sentence", sentence);
+            sayRequest.setDestination(PeerType.MAESTRO, "");
+
+            // send the message to the console
+            this._console.sendMessage(sayRequest);
+    }
+
 }
