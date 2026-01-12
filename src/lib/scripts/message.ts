@@ -11,6 +11,7 @@ export enum PeerType {
     SPECTAKLE = "spectakle",
     KOPPELIA = "koppelia",
     NONE = "none",
+    BROADCAST = "broadcast",
 };
 
 export enum MessageType {

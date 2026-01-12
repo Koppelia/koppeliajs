@@ -1,5 +1,6 @@
 
 import { writable } from 'svelte/store';
+import { logger } from '../scripts/logger.js';
 
 // Create an empty game state
 export const gameState = writable({
@@ -9,6 +10,6 @@ export const gameState = writable({
 gameState.subscribe((newValue) => {
     // change the sate of the game
 
-    console.log("Game state changed")
+    logger.log("Game state changed")
 
 });

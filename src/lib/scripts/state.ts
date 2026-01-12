@@ -1,4 +1,5 @@
 import { Console } from "./console.js";
+import { logger } from "./logger.js";
 import { Message } from "./message.js";
 import { get, writable, type Writable } from "svelte/store";
 
@@ -92,14 +93,14 @@ export class State {
                         update[entry] = newState[entry];
                     }
                 }
-                console.log("change state NewState=", newState, "; update=", update, " currentState=", this._previousStateValue);
+                logger.log("change state NewState=", newState, "; update=", update, " currentState=", this._previousStateValue);
                 this._previousStateValue = structuredClone(newState);
                 this._console.onReady(() => {
 
 
                     let req = new Message();
                     req.setRequest("changeState");
-                    req.addParam("state", update);
+                    req.addParam("state", this._forceState ? newState : update);
 
                     req.addParam("update", !this._forceState);
                     this._forceState = false;

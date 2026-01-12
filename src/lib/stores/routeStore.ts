@@ -1,6 +1,7 @@
 // src/lib/routeStore.js (dans la librairie)
 import { writable, get } from 'svelte/store';
 import { page } from '$app/stores'
+import { logger } from '../scripts/logger.js';
 
 // Crée un store pour la route active
 export const routeType = writable('');
@@ -10,14 +11,14 @@ export function updateRoute() {
 
   const path = get(page).url.pathname
 
-  console.log("updateRoue with path = ", path);
+  logger.log("updateRoue with path = ", path);
 
   if (path.includes('controller')) {
     routeType.set('controller');
-    console.log(path, "CONTROLLER");
+    logger.log(path, "CONTROLLER");
   } else if (path.includes('monitor')) {
     routeType.set('monitor');
-    console.log(path, "MONITOR");
+    logger.log(path, "MONITOR");
   } else {
     routeType.set('');
   }

@@ -1,3 +1,4 @@
+import { logger } from "./logger.js";
 import { Message, type AnyRequest } from "./message.js";
 
 export type Callback = (response: Message) => void
@@ -28,11 +29,11 @@ export class KoppeliaWebsocket {
     public constructor(websocketUrl: string, timeout: number = DEFAULT_WS_TIMEOUT) {
         if (!import.meta.env.SSR) {
             this._connectWebsocket(websocketUrl);
-            console.log("Open new Koppelia websocket connection successfully with url ", websocketUrl);
+            logger.log("Open new Koppelia websocket connection successfully with url ", websocketUrl);
             this._setupEvents();
         }
 
-        else console.log("Koppelia websocket not accessible during server rendering");
+        else logger.log("Koppelia websocket not accessible during server rendering");
 
         this.onGoingRequests = [];
         this.timeout = timeout;
@@ -49,7 +50,7 @@ export class KoppeliaWebsocket {
      */
     public send(data: Message, callback?: Callback) {
         if (this.socket === undefined) {
-            console.log("KoppeliaWebsocket::send(): Koppelia websocket client was not instancieated")
+            logger.log("KoppeliaWebsocket::send(): Koppelia websocket client was not instancieated")
             return;
         }
         // Create a request id
@@ -57,7 +58,7 @@ export class KoppeliaWebsocket {
         this._addNewRequest(data.getRequestId(), callback);
         // Send the request
         const serializedMessage = JSON.stringify(data.toObject());
-        console.log("sending message", serializedMessage);
+        logger.log("sending message", serializedMessage);
         this.socket.send(serializedMessage);
         // set a timeout
         window.setTimeout(() => this._deleteRequest(data.getRequestId()), this.timeout);;
@@ -121,7 +122,7 @@ export class KoppeliaWebsocket {
      */
     private _setupEvents(): void {
         if (this.socket === undefined) {
-            console.log("KoppeliaWebsocket::_setupEvents(): Koppelia websocket client was not instancieated")
+            logger.log("KoppeliaWebsocket::_setupEvents(): Koppelia websocket client was not instancieated")
             return;
         }
 
@@ -140,7 +141,7 @@ export class KoppeliaWebsocket {
 
         // handle connection close (if an error occure)
         this.socket.onclose = (event: CloseEvent) => {
-            console.log(`Connection closed ${event.reason}, code=${event.code}, retry onnection ...`)
+            logger.log(`Connection closed ${event.reason}, code=${event.code}, retry onnection ...`)
             setTimeout(() => { this._connectWebsocket(this.websocketUrl); this._setupEvents(); }, 1000);
         };
 

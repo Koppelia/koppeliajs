@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import bodyParser from 'body-parser';
+import { logger } from '../scripts/logger.js';
 
 const app = express();
 
@@ -25,7 +26,7 @@ export class KoppeliaServerApi {
     getContentType(file: string) {
         let contentType = "";
         let ext = path.extname(file).substring(1);
-        console.log(ext);
+        logger.log(ext);
         switch (ext) {
             case 'html':
                 contentType = "text/html";
@@ -57,7 +58,7 @@ export class KoppeliaServerApi {
             case "json":
                 contentType = "application/" + ext;
         }
-        console.log(file + "; " + contentType);
+        logger.log(file + "; " + contentType);
         return contentType;
 
     }

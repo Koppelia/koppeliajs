@@ -4,6 +4,7 @@ import type { AnyState } from './state.js';
 import { page } from '$app/stores';
 import { get } from 'svelte/store';
 import { routeType } from '../stores/routeStore.js';
+import { logger } from './logger.js';
 
 const PORT = 2225;
 const API_PORT = 8000;
@@ -129,6 +130,10 @@ export class Console {
         this._deviceEventHandlers.push(callback);
     }
 
+    onDataExchange(callback: DataExchangeCallback) {
+        this._dataExchangeHandlers.push(callback);
+    }
+
     onRequest(callback: AnyRequestCallback) {
         this._anyRequestHandlers.push(callback);
     }
@@ -194,7 +199,7 @@ export class Console {
     }
 
     private _processReceivedData(request: Message) {
-        console.log("Receive new data from console", request);
+        logger.log("Receive new data from console", request);
         if (request.header.type === undefined)
             return;
 
@@ -271,10 +276,9 @@ export class Console {
     public destroyEvents() {
         this._deviceEventHandlers = [];
         this._deviceDataHandlers = [];
-        this._dataExchangeHandlers = [];
         this._anyRequestHandlers = [];
 
-        console.log("destroy events event handlers");
+        logger.log("destroy events event handlers");
     }
 
 }

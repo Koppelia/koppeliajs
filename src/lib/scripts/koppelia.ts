@@ -9,6 +9,8 @@ import { Play } from "./play.js";
 import { PUBLIC_GAME_ID } from "$env/static/public";
 import { Resident } from "./resident.js";
 import { Option, type OptionChangedCallback } from "./option.js";
+import { logger, setDebugMode } from "./logger.js";
+import { CustomCallbacks } from "./customCallback.js";
 
 export class Koppelia {
     private _console: Console;
@@ -16,25 +18,25 @@ export class Koppelia {
     private _stage: Stage;
     private static _instance: Koppelia;
     private _option: Option;
+    private _callbacks: CustomCallbacks;
 
     constructor() {
         this._console = new Console();
+        this._callbacks = new CustomCallbacks(this._console);
         this._console.onReady(() => {
             let type = get(routeType);
             if (type == "controller") {
-                console.log("identify controller");
+                logger.log("identify controller");
                 this._console.identify(PeerType.CONTROLLER);
             } else if (type == "monitor") {
-                console.log("identify monitor");
+                logger.log("identify monitor");
                 this._console.identify(PeerType.MONITOR);
             } else {
-                console.log("Cannot identifiy type ", type);
+                logger.log("Cannot identifiy type ", type);
             }
         });
 
-        this._state = new State(this._console, {
-            hey: "coucou",
-        });
+        this._state = new State(this._console, {});
         this._stage = new Stage(this._console);
         this._option = new Option(this._console);
     }
@@ -43,7 +45,6 @@ export class Koppelia {
         if (!Koppelia._instance) {
             Koppelia._instance = new Koppelia();
         }
-
         return Koppelia._instance;
     }
 
@@ -61,6 +62,10 @@ export class Koppelia {
 
     public get ready(): boolean {
         return this._console.ready;
+    }
+
+    public setDebugMode(enable: boolean) {
+        setDebugMode(enable);
     }
 
     /**
@@ -81,7 +86,7 @@ export class Koppelia {
     public init(defaultState: AnyState, stages: string[]) {
         this._console.onReady(() => {
             let type = get(routeType);
-            if (type == "controller") {
+            if (type == "monitor") {
                 this._state.setState(defaultState, true); // set the state
                 this._stage.initStages(stages); // init the list of stages
             }
@@ -267,7 +272,6 @@ export class Koppelia {
                     }
                 },
             );
-
             resolve();
         });
     }
@@ -341,6 +345,50 @@ export class Koppelia {
         });
     }
 
+    public async writeGameConfig(
+        config_id: string,
+        config_value: { [key: string]: any },
+        current_play: boolean = true,
+    ) {
+        let setGameConfigRequest = new Message();
+
+        setGameConfigRequest.setRequest("setGameData");
+        setGameConfigRequest.addParam(
+            "playId",
+            current_play ? "current" : null,
+        );
+        setGameConfigRequest.addParam("content", config_value);
+        setGameConfigRequest.addParam("dataId", config_id);
+        setGameConfigRequest.setDestination(PeerType.MASTER, "");
+
+        this._console.sendMessage(
+            setGameConfigRequest,
+        );
+    }
+
+    public async getGameConfig(
+        config_id: string,
+        current_play: boolean,
+    ): Promise<{ [key: string]: any }> {
+        return new Promise((resolve, reject) => {
+            let getGameConfigRequest = new Message();
+            getGameConfigRequest.setRequest("getGameData");
+            getGameConfigRequest.addParam(
+                "playId",
+                current_play ? "current" : null,
+            );
+            getGameConfigRequest.addParam("dataId", config_id);
+            getGameConfigRequest.setDestination(PeerType.MASTER, "");
+            this._console.sendMessage(
+                getGameConfigRequest,
+                (response: Message) => {
+                    let gameConfigContent = response.getParam("gameData", {});
+                    resolve(gameConfigContent.content || {});
+                },
+            );
+        });
+    }
+
     /**
      * @param sentence
      */
@@ -380,20 +428,39 @@ export class Koppelia {
         });
     }
 
-    public createSwitchOption(name: string,label: string, value: boolean) {
+    public createSwitchOption(name: string, label: string, value: boolean) {
         this._option.setOption(name, value, "switch", {
             "label": label,
         });
     }
 
-    public createChoicesOption(name: string, label: string, value: string, choices: string[]) {
+    public createChoicesOption(
+        name: string,
+        label: string,
+        value: string,
+        choices: string[],
+    ) {
         this._option.setOption(name, value, "choices", {
             "choices": choices,
-            "label": label
+            "label": label,
         });
     }
 
     public onOptionChanged(name: string, callback: OptionChangedCallback) {
         this._option.onOptionChanged(name, callback);
     }
+
+    public run(callbackName: string, args: {[key: string]: any}) {
+        this._callbacks.runCustomCallback(callbackName, args);
+    }
+
+    public on(callbackName: string, callback: (args: {[key: string]: any}) => void) {
+        this._callbacks.registerCustomCallback(callbackName, callback);
+    }
+
+    public unsub(callbackName: string) {
+        this._callbacks.unregisterCustomCallback(callbackName);
+    }
+
+
 }
