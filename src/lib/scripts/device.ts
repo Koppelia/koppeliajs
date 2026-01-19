@@ -56,10 +56,6 @@ export class Device {
         return this._name;
     }
 
-    ping() {
-
-    }
-
     onEvent(eventName: string, callback: () => void) {
         this._attachEvent(eventName);
         let consoleEvent = (device: string, from_addr: string, event: string) => {
@@ -69,15 +65,14 @@ export class Device {
         this._console.onDeviceEvent(consoleEvent);
     }
 
-    onZPosition(callback: (z: number) => void) {
-        this._enableModule("zPos");
-        this._attachEvent("zPosition");
+    onCursor(callback: (x: number, y: number) => void) {
+        this._enableModule("cursor");
+        this._attachEvent("cursor");
         this._console.onRequest((request, params, form, address) => {
-            if (request == "zPosition" && address == this._address) {
-                callback(params.value);
+            if (request == "cursor" && address == this._address) {
+                callback(params.x, params.y);
             }
         });
-
     }
 
     onVerticalDetector(callback: (vertical: boolean) => void) {
