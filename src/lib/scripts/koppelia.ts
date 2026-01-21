@@ -11,6 +11,7 @@ import { Resident } from "./resident.js";
 import { Option, type OptionChangedCallback } from "./option.js";
 import { logger, setDebugMode } from "./logger.js";
 import { CustomCallbacks } from "./customCallback.js";
+import { Song } from "./song.js";
 
 export class Koppelia {
     private _console: Console;
@@ -202,6 +203,47 @@ export class Koppelia {
                         residents.push(resident);
                     }
                     resolve(residents);
+                },
+            );
+        });
+    }
+
+    public async getSongById(songId: string): Promise<Song> {
+        return new Promise((resolve, reject) => {
+            let getSongRequest = new Message();
+            getSongRequest.setRequest("getSong");
+            getSongRequest.addParam("songId", songId);
+            getSongRequest.setDestination(PeerType.MASTER, "");
+            this._console.sendMessage(
+                getSongRequest,
+                (response: Message) => {
+                    let rawSong: { [key: string]: any } = response
+                        .getParam("song", {});
+                    let song: Song = new Song();
+                    song.fromObject(rawSong);
+                    resolve(song);
+                },
+            );
+        });
+    }
+
+    public getCurrentPlaySongs(): Promise<{ [key: string]: Song }> {
+        return new Promise((resolve, reject) => {
+            let getSongRequest = new Message();
+            getSongRequest.setRequest("getCurrentPlaySongs");
+            getSongRequest.setDestination(PeerType.MASTER, "");
+            this._console.sendMessage(
+                getSongRequest,
+                (response: Message) => {
+                    let rawSongs: { [key: string]: any }[] = response
+                        .getParam("songs", []);
+                    let songs: { [key: string]: Song } = {};
+                    for (let songObj of rawSongs) {
+                        let song = new Song();
+                        song.fromObject(songObj);
+                        songs[song.id] = song;
+                    }
+                    resolve(songs);
                 },
             );
         });
@@ -450,17 +492,18 @@ export class Koppelia {
         this._option.onOptionChanged(name, callback);
     }
 
-    public run(callbackName: string, args: {[key: string]: any}) {
+    public run(callbackName: string, args: { [key: string]: any }) {
         this._callbacks.runCustomCallback(callbackName, args);
     }
 
-    public on(callbackName: string, callback: (args: {[key: string]: any}) => void) {
+    public on(
+        callbackName: string,
+        callback: (args: { [key: string]: any }) => void,
+    ) {
         this._callbacks.registerCustomCallback(callbackName, callback);
     }
 
     public unsub(callbackName: string) {
         this._callbacks.unregisterCustomCallback(callbackName);
     }
-
-
 }

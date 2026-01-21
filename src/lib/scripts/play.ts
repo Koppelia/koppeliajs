@@ -16,6 +16,8 @@ export class Play {
     private _playFileName: string = "";
     private _console: Console;
     private _refreshed: boolean = true;
+    private _playContent: {[key: string]: any } = {};
+    private _playContentLoaded: boolean = false;
 
     constructor(console: Console, playId: string, playRawObj: { [key: string]: any }) {
         this._console = console;
@@ -29,6 +31,7 @@ export class Play {
         if (playRawObj.file_name  !== undefined) {
             this._playFileName = playRawObj.file_name;
         }
+        this._playContentLoaded = false;
     }
 
     public getPlayMediaPath(mediaName: string): string {
@@ -47,6 +50,19 @@ export class Play {
 
     public async getMediaData(): Promise<{ [key: string]: any }> {
         return await this.getMediaContent(this._playFileName);
+    }
+
+    public async updatePlayContent(): Promise<void> {
+        this._playContent = await this.getMediaData();
+        this._playContentLoaded = true;
+    }
+
+    public get playContent(): { [key: string]: any } {
+        return this._playContent;
+    }
+
+    public isPlayContentLoaded(): boolean {
+        return this._playContentLoaded;
     }
 
     /**
