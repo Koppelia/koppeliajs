@@ -75,6 +75,16 @@ export class Device {
         });
     }
 
+    onBiking(callback: (speed: number) => void) {
+        this._enableModule("biking");
+        this._attachEvent("biking");
+        this._console.onRequest((request, params, form, address) => {
+            if (request == "biking" && address == this._address) {
+                callback(params.speed);
+            }
+        });
+    }
+
     onVerticalDetector(callback: (vertical: boolean) => void) {
         this._enableModule("vDetct");
         this._attachEvent("verticalDetector");
