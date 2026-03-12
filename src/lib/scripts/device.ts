@@ -10,7 +10,9 @@ import { Resident } from './resident.js';
 type Color = {
     r: number,
     g: number,
-    b: number
+    b: number,
+    lon?: number,
+    loff?: number,
 };
 
 type Vibration = {
