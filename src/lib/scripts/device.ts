@@ -1,32 +1,31 @@
-
-import { Console } from './console.js';
-import { Message, MessageType, PeerType } from './message.js';
-import { Resident } from './resident.js';
+import { Console } from "./console.js";
+import { Message, MessageType, PeerType } from "./message.js";
+import { Resident } from "./resident.js";
 
 /**
  * This class reprensts a device
  */
 
 type Color = {
-    r: number,
-    g: number,
-    b: number,
-    lon?: number,
-    loff?: number,
+    r: number;
+    g: number;
+    b: number;
+    lon?: number;
+    loff?: number;
 };
 
 type Vibration = {
-    v: number, // time on (vibrating time)
-    toff: number, // time off
-    c: number // number of cycles on/off
-}
+    v: number; // time on (vibrating time)
+    toff: number; // time off
+    c: number; // number of cycles on/off
+};
 
 export class Device {
-    private _address: string
-    private _color: Color
-    private _name: string
-    private _console: Console
-    private _attachedEvents: string[]
+    private _address: string;
+    private _color: Color;
+    private _name: string;
+    private _console: Console;
+    private _attachedEvents: string[];
     private _resident?: Resident;
     private isAttachedToResident: boolean;
 
@@ -34,8 +33,8 @@ export class Device {
         this._address = address;
         this._color = { r: 0, g: 0, b: 0 };
         this._name = "";
-        this._console = console
-        this._attachedEvents = []
+        this._console = console;
+        this._attachedEvents = [];
         this.isAttachedToResident = false;
     }
 
@@ -60,10 +59,15 @@ export class Device {
 
     onEvent(eventName: string, callback: () => void) {
         this._attachEvent(eventName);
-        let consoleEvent = (device: string, from_addr: string, event: string) => {
-            if (event == eventName && from_addr == this._address)
+        let consoleEvent = (
+            device: string,
+            from_addr: string,
+            event: string,
+        ) => {
+            if (event == eventName && from_addr == this._address) {
                 callback();
-        }
+            }
+        };
         this._console.onDeviceEvent(consoleEvent);
     }
 
@@ -125,18 +129,32 @@ export class Device {
         this._console.sendMessage(request);
     }
 
+    setColorSequence(sequence: string[], reset: boolean = false) {
+        let request = new Message();
+        request.setDestination(PeerType.DEVICE, this._address);
+        request.setRequest("setColorSequence");
+        request.addParam("sequence", sequence);
+        request.addParam("reset", reset);
+        this._console.sendMessage(request);
+    }
+
     /**
      * Vibrate the device (use the motor vibrator)
-     * @param time 
-     * @param blink 
-     * @param blinkOff 
-     * @param blinkCount 
+     * @param time
+     * @param blink
+     * @param blinkOff
+     * @param blinkCount
      */
-    vibrate(time: number, blink: boolean = false, blinkOff: number = 0, blinkCount: number = 0) {
+    vibrate(
+        time: number,
+        blink: boolean = false,
+        blinkOff: number = 0,
+        blinkCount: number = 0,
+    ) {
         let vibration: Vibration = {
             v: time,
             toff: 0,
-            c: 1
+            c: 1,
         };
         if (blink) {
             vibration.toff = blinkOff;
@@ -149,23 +167,22 @@ export class Device {
         request.setRequest("vibrate");
         this._console.sendMessage(request);
     }
-    
+
     /**
      * Convert this device object to a json object
-     * @returns 
+     * @returns
      */
     toObject(): { [key: string]: any } {
         return {
             "address": this._address,
             "color": this._color,
-            "name": this._name
-        }
-
+            "name": this._name,
+        };
     }
 
     /**
      * set the device object from a json object
-     * @param object 
+     * @param object
      */
     fromObject(object: { [key: string]: any }) {
         if (object.address !== undefined) {
@@ -190,5 +207,5 @@ export class Device {
 
     public get isAssociatedToResident(): boolean {
         return this.isAttachedToResident;
-    } 
+    }
 }
