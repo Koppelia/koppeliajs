@@ -351,7 +351,6 @@ export class Koppelia {
     public async registerNewResizableText(
         id: string,
         defaultSize: number,
-        onTextResized: (newSize: number) => void,
     ): Promise<void> {
         return new Promise((resolve, reject) => {
             if (get(routeType) == "monitor") {
@@ -369,21 +368,47 @@ export class Koppelia {
                 );
             }
 
-            this._console.onRequest(
-                (req: string, params: { [key: string]: any }) => {
-                    if (req == "resizableTextNotification") {
-                        if (params.id !== undefined && params.id == id) {
-                            let fontSize = defaultSize;
-                            if (params.fontSize != undefined) {
-                                fontSize = params.fontSize;
-                            }
-                            onTextResized(fontSize);
-                        }
+            resolve();
+        });
+    }
+
+    public onResizableTextChanged(
+        id: string,
+        onTextResized: (newSize: number) => void,
+    ): string {
+        return this._console.onRequest(
+            (req: string, params: { [key: string]: any }) => {
+                if (req == "resizableTextNotification") {
+                    if (
+                        params.id !== undefined && params.id == id &&
+                        params.fontSize != undefined
+                    ) {
+                        let fontSize = params.fontSize;
+                        onTextResized(fontSize);
                     }
+                }
+            },
+        );
+    }
+
+    public unsubResizableText(callbackId: string) {
+        this._console.unsubscribeCallback(callbackId);
+    }
+
+    public async getResizableTexts(): Promise<{ [key: string]: any }[]> {
+        return new Promise((resolve, reject) => {
+            let addGrowableElRequest = new Message();
+            addGrowableElRequest.setRequest("getResizableTexts");
+            addGrowableElRequest.setDestination(PeerType.MASTER, "");
+
+            // send the message to the console (only the controller sends the )
+            this._console.sendMessage(
+                addGrowableElRequest,
+                (response: Message) => {
+                    let resizables = response.getParam("resizableTexts", [])
+                    resolve(resizables);
                 },
             );
-
-            resolve();
         });
     }
 

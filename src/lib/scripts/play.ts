@@ -31,6 +31,9 @@ export class Play {
         if (playRawObj.file_name  !== undefined) {
             this._playFileName = playRawObj.file_name;
         }
+        if(playRawObj.thumbnail !== undefined) {
+            this._playImagebase64 = playRawObj.thumbnail;
+        }
         this._playContentLoaded = false;
     }
 
