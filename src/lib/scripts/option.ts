@@ -5,11 +5,18 @@ import { get, type Writable, writable } from "svelte/store";
 export type Options = { [key: string]: any };
 export type OptionChangedCallback = (value: any) => void;
 
+/**
+ * Manages game configuration options, allowing retrieval from the server and local modifications.
+ */
 export class Option {
     private _options: Options;
     private _console: Console;
     private _callbacks: { [key: string]: OptionChangedCallback };
 
+    /**
+     * Initializes the game options manager.
+     * @param console The Console instance used for network communication.
+     */
     constructor(console: Console) {
         this._options = {};
         this._console = console;
@@ -17,12 +24,16 @@ export class Option {
         this._initEvents();
     }
 
+    /**
+     * Retrieves the current dictionary of options.
+     */
     public get options(): Options {
         return this._options;
     }
 
     /**
-     * Update the game options from the server
+     * Fetches all current game options from the server and populates the local cache.
+     * @returns A promise that resolves when the options have been successfully received and processed.
      */
     public async updateFromServer(): Promise<void> {
         return new Promise((resolve, reject) => {
@@ -44,9 +55,11 @@ export class Option {
     }
 
     /**
-     * Set a new or edit a game option
-     * @param name Name fo the option
-     * @param value Value of the option
+     * Requests the master peer to create or update a game option.
+     * @param name The unique identifier of the option.
+     * @param value The value to assign to the option.
+     * @param type Optional type definition for the option (e.g., string, number).
+     * @param config Optional additional configuration metadata for the option.
      */
     public setOption(
         name: string,
@@ -62,31 +75,25 @@ export class Option {
         setOptionRequest.addParam("type", type);
         setOptionRequest.addParam("config", config);
         this._console.sendMessage(setOptionRequest);
-
-        // this._options[name] = value;
     }
 
     /**
-     * Set a callback when an option has changed
-     * @param name
-     * @param callback
+     * Registers a callback to be executed whenever a specific option is updated.
+     * @param name The name of the option to observe.
+     * @param callback The function to trigger upon modification.
      */
     public onOptionChanged(name: string, callback: OptionChangedCallback) {
         this._callbacks[name] = callback;
     }
 
     /**
-     * Init all events
-     * @param from
-     * @param any
+     * Initializes core events: fetching options on readiness and listening for option change notifications.
      */
     private _initEvents() {
-        // Get the state when the console is ready
         this._console.onReady(() => {
             this.updateFromServer();
         });
 
-        // update the state when receive a change from console
         this._console.onRequest((request, params, from) => {
             if (request == "gameOptionNotification") {
                 let value: { [key: string]: any } = {};
@@ -103,7 +110,11 @@ export class Option {
     }
 
     /**
-     * callback when a new option is received
+     * Internal handler to process incoming options from the server and trigger associated callbacks.
+     * @param from The origin peer sending the option.
+     * @param receivedOption The name/key of the option received.
+     * @param valueOption The payload containing the option's new value.
+     * @param runCallbacks If true, executes any registered callbacks for this option.
      */
     private _onReceiveState(
         from: string,

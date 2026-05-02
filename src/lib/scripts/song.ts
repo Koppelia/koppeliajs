@@ -1,5 +1,9 @@
 import { Koppelia } from "./koppelia.js";
 
+/**
+ * Represents a Song entity, managing its metadata (artist, album, year)
+ * and providing access to its associated media files (audio tracks, cover, lyrics).
+ */
 export class Song {
     private _id: string = "";
     private _name: string = "";
@@ -52,40 +56,72 @@ export class Song {
         return this._length;
     }
 
+    /**
+     * Retrieves the base media folder path for this specific song.
+     * @returns The relative path to the song's media directory.
+     */
     public getSongsFolderPath(): string {
         return "/media/song/" + this._id;
     }
 
+    /**
+     * Constructs the full URL for a specific media file within the song's folder.
+     * @param mediaName The file name of the media asset.
+     * @returns The fully qualified URL to access the media.
+     */
     public getMediaUrl(mediaName: string) {
         let koppelia = Koppelia.instance;
         let path = this.getSongsFolderPath() + "/" + mediaName;
         return koppelia.getMediaLink(path);
     }
 
+    /**
+     * Gets the URL for the main audio track.
+     */
     public get songUrl(): string {
         return this.getMediaUrl(this._songFile);
     }
 
+    /**
+     * Gets the URL for the album cover image.
+     */
     public get coverUrl(): string {
         return this.getMediaUrl(this._coverImage);
     }
 
+    /**
+     * Gets the URL for the lyrics file.
+     */
     public get lyricsUrl(): string {
         return this.getMediaUrl(this._lyricsFile);
     }
 
+    /**
+     * Gets the URL for the backing track (instrumental).
+     */
     public get songBackingUrl(): string {
         return this.getMediaUrl(this._songBackingFile);
     }
 
+    /**
+     * Gets the URL for the vocal/lyrics audio track.
+     */
     public get songLyricsUrl(): string {
         return this.getMediaUrl(this._songLyricsFile);
     }
 
+    /**
+     * Asynchronously fetches and reads the lyrics file content as plain text.
+     * @returns A promise resolving to the text content of the lyrics.
+     */
     public async getLyrics(): Promise<string> {
         return (await fetch(this.lyricsUrl)).text();
     }
 
+    /**
+     * Hydrates the Song instance using properties from a provided raw JSON object.
+     * @param object A dictionary containing the song's metadata and file names.
+     */
     public fromObject(object: { [key: string]: any }) {
         this._name = object["name"];
         this._id = object["id"];

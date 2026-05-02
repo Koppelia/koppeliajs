@@ -3,9 +3,12 @@ import { logger } from "./logger.js";
 import { Message } from "./message.js";
 import { get, writable, type Writable } from "svelte/store";
 
-
 export type AnyState = { [key: string]: any }
 
+/**
+ * Manages the synchronized global state of the application.
+ * Uses a Svelte writable store locally and syncs changes automatically with the server via the Console.
+ */
 export class State {
     private _globalState: Writable<AnyState>;
     private _console: Console
@@ -13,22 +16,31 @@ export class State {
     private _previousStateValue: AnyState = {}
     private _forceState: boolean;
 
+    /**
+     * Initializes the state manager.
+     * @param console The Console instance used for network communication.
+     * @param defaultState The initial state to populate the Svelte store with.
+     */
     constructor(console: Console, defaultState: AnyState = {}) {
         this._access = false;
         this._globalState = writable(defaultState);
         this._console = console;
-        this._forceState = false; // force the state without update
+        this._forceState = false; 
 
         this._initEvents();
         this._access = true;
     }
 
+    /**
+     * Retrieves the Svelte writable store containing the global state.
+     * @returns The Svelte writable store.
+     */
     public get state(): Writable<AnyState> {
         return this._globalState;
     }
 
     /**
-     * Update the state from the server
+     * Requests the latest state from the server and updates the local store upon receiving the response.
      */
     public updateFromServer() {
         let req = new Message();
@@ -40,17 +52,18 @@ export class State {
     }
 
     /**
-     * Force change the state with a new one
-     * @param newState 
+     * Completely overwrites the current state with a new state object.
+     * @param newState The new state object to apply.
+     * @param force If true, forces the entire state payload to be broadcasted instead of just the computed diffs.
      */
     public setState(newState: AnyState, force: boolean = false) {
-        this._forceState = force; // if force to true -> force the state to be sent entirely instead of sending an update
+        this._forceState = force; 
         this._globalState.set(newState);
     }
 
     /**
-     * Marge a new update to the last one
-     * @param stateUpdate 
+     * Merges a partial update into the current global state.
+     * @param stateUpdate A dictionary containing only the keys/values to update.
      */
     public updateState(stateUpdate: AnyState) {
         let tempState = get(this._globalState);
@@ -61,22 +74,18 @@ export class State {
     }
 
     /**
-     * Init all events
-     * @param from 
-     * @param any 
+     * Initializes core events: fetching state on readiness, listening for incoming state changes, 
+     * and subscribing to the local Svelte store to broadcast outgoing changes.
      */
     private _initEvents() {
-        // Get the state when the console is ready
         this._console.onReady(() => {
             this.updateFromServer();
         });
 
-        // update the state when receive a change from console
         this._console.onStateChange((from, state, update) => {
             this._onReceiveState(from, state, update);
         });
 
-        // Send a change state request when detect a state change
         this._globalState.subscribe((newState: AnyState) => {
             if (this._access) {
                 let update: { [key: string]: any } = {};
@@ -93,27 +102,29 @@ export class State {
                         update[entry] = newState[entry];
                     }
                 }
+                
                 logger.log("change state NewState=", newState, "; update=", update, " currentState=", this._previousStateValue);
                 this._previousStateValue = structuredClone(newState);
+                
                 this._console.onReady(() => {
-
-
                     let req = new Message();
                     req.setRequest("changeState");
                     req.addParam("state", this._forceState ? newState : update);
-
                     req.addParam("update", !this._forceState);
+                    
                     this._forceState = false;
                     this._console.sendMessage(req);
-
                 });
             }
         });
-
     }
 
     /**
-     * callback when a new state 
+     * Internal handler executed when a new state is received from the network.
+     * Temporarily blocks local store subscriptions to prevent echo-broadcasting the received state.
+     * @param from The origin peer of the state.
+     * @param receivedState The state object payload.
+     * @param update Flag indicating if the payload is a partial update (true) or a full overwrite (false).
      */
     private _onReceiveState(from: string, receivedState: AnyState, update: boolean) {
         this._access = false;

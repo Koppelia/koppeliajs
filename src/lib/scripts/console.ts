@@ -36,13 +36,13 @@ export type AnyRequestCallback = (
 export type MediaResponseData = string | Blob | ArrayBuffer | any;
 
 /**
- * This class defines the Koppelia console to send and receive requests.
+ * Handles the Koppelia console connection, facilitating the sending and receiving of requests
+ * and managing event subscriptions for state changes, device data, and custom logic.
  */
 export class Console {
     consoleHostname: string = "";
     consoleSocket: KoppeliaWebsocket;
 
-    // Event handlers stored as dictionaries (Record) for ID-based subscription management
     private _changeStateHandlers: Record<string, ChangeStateCallback>;
     private _changeStageHandlers: Record<string, ChangeStageCallback>;
     private _deviceEventHandlers: Record<string, any>;
@@ -64,7 +64,6 @@ export class Console {
         this._mediaApiUrl = "http://" + this.consoleHostname + ":" + API_PORT;
         this._ready = false;
 
-        // Initialize dictionaries
         this._changeStateHandlers = {};
         this._changeStageHandlers = {};
         this._deviceEventHandlers = {};
@@ -77,7 +76,8 @@ export class Console {
     }
 
     /**
-     * Generates a unique random ID for callback registration.
+     * Generates a unique random ID used for registering and tracking callbacks.
+     * @returns A randomly generated string ID.
      */
     private _generateId(): string {
         return Math.random().toString(36).substring(2, 15) +
@@ -85,9 +85,9 @@ export class Console {
     }
 
     /**
-     * Unsubscribes a previously registered callback using its ID.
-     * @param id The identifier returned by the "on..." functions.
-     * @returns true if the ID was found and deleted, false otherwise.
+     * Unsubscribes a previously registered callback using its unique ID.
+     * @param id The subscription identifier returned by any "on..." listener function.
+     * @returns True if the ID was found and successfully removed, false otherwise.
      */
     unsubscribeCallback(id: string): boolean {
         let deleted = false;
@@ -123,9 +123,10 @@ export class Console {
     }
 
     /**
-     * Sends a message to the console. Set header.to to dispatch the message.
-     * @param message The message to send.
-     * @param callback The callback triggered when the websocket receives a response.
+     * Dispatches a message through the console socket. 
+     * The routing source is automatically appended based on the current application state.
+     * @param message The message payload to send.
+     * @param callback Optional callback triggered when the WebSocket receives a specific response.
      */
     sendMessage(message: Message, callback?: Callback) {
         let route = PeerType.NONE;
@@ -140,7 +141,7 @@ export class Console {
     }
 
     /**
-     * Identifies the page (controller or monitor) to the console.
+     * Identifies the current client application (controller or monitor) to the console.
      * @param peer The peer type to identify as.
      */
     identify(peer: PeerType) {
@@ -149,13 +150,17 @@ export class Console {
         this.consoleSocket.send(req);
     }
 
+    /**
+     * Retrieves the list of connected devices.
+     * @todo Implementation pending.
+     */
     getConnectedDevices() {
     }
 
     /**
-     * Sends data to a specific peer.
-     * @param receiver The peer type receiving the data.
-     * @param data The data payload.
+     * Transmits data payload directly to a specific peer type.
+     * @param receiver The target peer intended to receive the data.
+     * @param data The data payload to transmit.
      */
     sendDataTo(receiver: PeerType, data: MessageData) {
         let req = new Message();
@@ -164,9 +169,9 @@ export class Console {
     }
 
     /**
-     * Adds a callback to be executed when a new state is received from the console.
-     * @param callback Function to execute on state change.
-     * @returns The subscription ID.
+     * Registers a callback to execute whenever a new state is received from the console.
+     * @param callback The function to execute on state change.
+     * @returns The unique subscription ID used for unsubscribing.
      */
     onStateChange(callback: ChangeStateCallback): string {
         const id = this._generateId();
@@ -175,9 +180,9 @@ export class Console {
     }
 
     /**
-     * Adds a callback to be executed when the current stage changes.
-     * @param callback Function to execute on stage change.
-     * @returns The subscription ID.
+     * Registers a callback to execute whenever the current application stage changes.
+     * @param callback The function to execute on stage change.
+     * @returns The unique subscription ID used for unsubscribing.
      */
     onStageChange(callback: ChangeStageCallback): string {
         const id = this._generateId();
@@ -186,10 +191,10 @@ export class Console {
     }
 
     /**
-     * Adds a callback to be executed when the console is ready.
-     * If the console is already ready, the function is called immediately.
-     * @param callback Function to execute.
-     * @returns The subscription ID.
+     * Registers a callback to execute when the console connection is fully established and ready.
+     * If the console is already ready at the time of calling, the callback is executed immediately.
+     * @param callback The function to execute upon readiness.
+     * @returns The unique subscription ID used for unsubscribing.
      */
     onReady(callback: () => void): string {
         const id = this._generateId();
@@ -202,9 +207,9 @@ export class Console {
     }
 
     /**
-     * Adds a callback to listen for device events.
-     * @param callback Function to execute on device event.
-     * @returns The subscription ID.
+     * Registers a callback to listen for specific device events.
+     * @param callback The function to execute when a device event occurs.
+     * @returns The unique subscription ID used for unsubscribing.
      */
     onDeviceEvent(callback: DeviceEventCallback): string {
         const id = this._generateId();
@@ -213,9 +218,9 @@ export class Console {
     }
 
     /**
-     * Adds a callback to listen for data exchanges.
-     * @param callback Function to execute on data exchange.
-     * @returns The subscription ID.
+     * Registers a callback to listen for raw data exchanges between peers.
+     * @param callback The function to execute upon receiving exchanged data.
+     * @returns The unique subscription ID used for unsubscribing.
      */
     onDataExchange(callback: DataExchangeCallback): string {
         const id = this._generateId();
@@ -224,9 +229,9 @@ export class Console {
     }
 
     /**
-     * Adds a callback to listen for generic requests.
-     * @param callback Function to execute on request.
-     * @returns The subscription ID.
+     * Registers a generic callback to intercept and handle custom or unrecognized requests.
+     * @param callback The function to execute for generic requests.
+     * @returns The unique subscription ID used for unsubscribing.
      */
     onRequest(callback: AnyRequestCallback): string {
         const id = this._generateId();
@@ -235,23 +240,28 @@ export class Console {
     }
 
     /**
-     * Gets the current readiness state of the console connection.
+     * Gets the current readiness state of the console WebSocket connection.
      */
     public get ready(): boolean {
         return this._ready;
     }
 
+    /**
+     * Constructs the full URL for a media asset based on the API port and hostname.
+     * @param path The relative path to the media asset.
+     * @returns The fully qualified URL string.
+     */
     public getMediaUrl(path: string): string {
         if (!path.startsWith("/")) path = "/" + path;
         return this._mediaApiUrl + path;
     }
 
     /**
-     * Normalizes the media URL to ensure it works for both the controller and the monitor.
-     * Sometimes, a link retrieved from one client is saved as a game state, but fails
-     * when accessed by the other client. Wrapping all media URLs with this function is best practice.
-     * @param mediaUrl The original media URL.
-     * @returns The corrected URL string.
+     * Normalizes a media URL to ensure cross-client compatibility.
+     * Corrects edge cases where media links cached in game states by one client (e.g., controller)
+     * fail when accessed by another (e.g., monitor).
+     * @param mediaUrl The raw URL string to fix.
+     * @returns The corrected and standardized URL string.
      */
     public fixMediaUrl(mediaUrl: string): string {
         let url = new URL(mediaUrl);
@@ -261,6 +271,12 @@ export class Console {
         return fixedurl.toString();
     }
 
+    /**
+     * Fetches a media asset from the API and automatically parses it based on its Content-Type.
+     * @param path The relative path to the media asset.
+     * @returns A promise resolving to the parsed data (JSON, Text, Blob, or ArrayBuffer).
+     * @throws Will throw an error if the HTTP request fails.
+     */
     public async getMedia(path: string): Promise<MediaResponseData> {
         const response = await fetch(this.getMediaUrl(path));
 
@@ -271,19 +287,22 @@ export class Console {
         const contentType = response.headers.get("Content-Type") || "";
 
         if (contentType.includes("application/json")) {
-            return await response.json(); // Returns an Object
+            return await response.json(); 
         } else if (contentType.startsWith("text/")) {
-            return await response.text(); // Returns a String
+            return await response.text(); 
         } else if (
             contentType.startsWith("image/") ||
             contentType.includes("application/octet-stream")
         ) {
-            return await response.blob(); // Returns a Blob (images, downloads, etc.)
+            return await response.blob(); 
         } else {
-            return await response.arrayBuffer(); // Returns a Generic binary buffer
+            return await response.arrayBuffer(); 
         }
     }
 
+    /**
+     * Initializes core WebSocket event listeners and maps them to the internal handlers.
+     */
     private _initEvents() {
         this.consoleSocket.onOpen(() => {
             this._ready = true;
@@ -297,6 +316,11 @@ export class Console {
         });
     }
 
+    /**
+     * Core router for incoming WebSocket data. Decodes the message type and 
+     * dispatches it to the corresponding internal execution loops.
+     * @param request The parsed Message object received from the socket.
+     */
     private _processReceivedData(request: Message) {
         logger.log("Received new data from console", request);
         if (request.header.type === undefined) {
@@ -305,7 +329,6 @@ export class Console {
 
         let type = request.header.type;
 
-        /* Handle specific requests */
         if (type == MessageType.REQUEST) {
             switch (request.request.exec) {
                 case "changeState":
@@ -331,17 +354,17 @@ export class Console {
                     );
                     break;
             }
-        } /* Handle data exchange */
+        } 
         else if (type == MessageType.DATA_EXCHANGE) {
             this._execDataExchangeHandlers(request.header.from, request.data);
-        } /* Handle device event */
+        } 
         else if (type == MessageType.DEVICE_EVENT) {
             this._execDeviceEventHandlers(
                 request.header.device,
                 request.header.from_addr,
                 request.event,
             );
-        } /* Handle device data */
+        } 
         else if (type == MessageType.DEVICE_DATA) {
             this._execDeviceDataHandlers(
                 request.header.from_addr,
@@ -350,7 +373,8 @@ export class Console {
         }
     }
 
-    // Handler execution methods iterating over dictionary values
+    // --- Dictionary execution methods below ---
+
     private _execDeviceDataHandlers(from_addr: string, data: any) {
         for (let handler of Object.values(this._deviceDataHandlers)) {
             handler(from_addr, data);
@@ -401,10 +425,9 @@ export class Console {
     }
 
     /**
-     * Clears all registered event handlers.
+     * Hard-resets the application by clearing all registered event handlers.
      */
     public destroyEvents() {
-        // Reset dictionaries to empty objects
         this._deviceEventHandlers = {};
         this._deviceDataHandlers = {};
         this._anyRequestHandlers = {};

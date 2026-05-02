@@ -1,29 +1,37 @@
-// src/lib/routeStore.js (dans la librairie)
-import { writable, get } from 'svelte/store';
-import { page } from '$app/stores'
-import { logger } from '../scripts/logger.js';
+import { get, writable } from "svelte/store";
+import { page } from "$app/stores";
+import { logger } from "../scripts/logger.js";
 
-// Crée un store pour la route active
-export const routeType = writable('');
+/**
+ * A reactive Svelte store that holds the active route context of the application.
+ * Developers can subscribe to this store to adapt UI or logic based on the current view.
+ * * Possible values: 
+ * - `"controller"`: If the user is on a controller interface.
+ * - `"monitor"`: If the user is on a monitor interface.
+ * - `""` (empty string): If the current route matches neither.
+ */
+export const routeType = writable("");
 
-// Cette fonction met à jour le store en fonction de la route
+/**
+ * Evaluates the current SvelteKit page URL and updates the `routeType` store accordingly.
+ * This function should typically be called during layout initialization or whenever 
+ * a route change is detected to ensure the store stays synchronized with the actual URL.
+ */
 export function updateRoute() {
+  const path = get(page).url.pathname;
 
-  const path = get(page).url.pathname
+  logger.log("updateRoute with path = ", path);
 
-  logger.log("updateRoue with path = ", path);
-
-  if (path.includes('controller')) {
-    routeType.set('controller');
+  if (path.includes("controller")) {
+    routeType.set("controller");
     logger.log(path, "CONTROLLER");
-  } else if (path.includes('monitor')) {
-    routeType.set('monitor');
+  } else if (path.includes("monitor")) {
+    routeType.set("monitor");
     logger.log(path, "MONITOR");
   } else {
-    routeType.set('');
+    routeType.set("");
   }
-
-
-
-
 }
+
+
+
