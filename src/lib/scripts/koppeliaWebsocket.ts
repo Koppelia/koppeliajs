@@ -101,7 +101,7 @@ export class KoppeliaWebsocket {
         let message = new Message()
         message.parse(data)
         
-        if (message.getRequestId() !== undefined && message.getType() == "response") {
+        if (message.getRequestId() !== undefined) {
             let onGoing = this._getOnGoingRequest(message.getRequestId());
             if (onGoing) {
                 if (onGoing.callback)
