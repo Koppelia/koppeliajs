@@ -101,14 +101,14 @@ export class KoppeliaWebsocket {
         let message = new Message()
         message.parse(data)
         
-        if (message.getRequestId() !== undefined) {
+        if (message.getRequestId() !== undefined && message.getType() == "response") {
             let onGoing = this._getOnGoingRequest(message.getRequestId());
             if (onGoing) {
                 if (onGoing.callback)
                     onGoing.callback!(message);
                 
                 this._deleteRequest(message.getRequestId());
-                return
+                return;
             }
         }
 

@@ -151,6 +151,10 @@ export class Message {
         this.header.type = type;
     }
 
+    getType(): string {
+        return this.header.type;
+    }
+
     /**
      * Configures the message as an event request.
      * @param event The name of the event.
