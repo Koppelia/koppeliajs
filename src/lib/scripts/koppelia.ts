@@ -129,6 +129,10 @@ export class Koppelia {
         this._stage.goto(stageName);
     }
 
+    public getCurrentStage(): string {
+        return this._stage.currentStage;
+    }
+
     /**
      * Normalizes a media URL to ensure cross-client compatibility.
      * @param mediaUrl The raw media URL.

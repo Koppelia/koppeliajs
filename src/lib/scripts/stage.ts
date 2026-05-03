@@ -39,6 +39,7 @@ export class Stage {
         req.setRequest("initStages");
         req.addParam("stages", stages);
         this._console.sendMessage(req);
+        this._stages = stages;
     }
 
     /**
@@ -68,9 +69,16 @@ export class Stage {
      * @param receivedStage The name of the stage to load.
      */
     private _onReceiveStage(from: string, receivedStage: string) {
-        this._console.destroyEvents();
-        
+        this._currentStage = receivedStage;
         let path = "/game/" + get(routeType) + "/" + receivedStage;
         goto(path);
+    }
+
+    public get currentStage(): string {
+        return this._currentStage;
+    }
+
+    public get stages(): string[] {
+        return this._stages;
     }
 }
