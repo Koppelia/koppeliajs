@@ -50,6 +50,10 @@ export class Device {
         return this._name;
     }
 
+    public get address(): string {
+        return this._address
+    }
+
     /**
      * Subscribes to a specific hardware event for this device.
      * @param eventName The name of the event to listen to.
