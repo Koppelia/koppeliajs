@@ -27,6 +27,8 @@ export class Device {
     private _console: Console;
     private _attachedEvents: string[];
     private _resident?: Resident;
+    private _callbackIds: string[];
+    private _eventsIds: string[];
     private isAttachedToResident: boolean;
 
     constructor(console: Console, address = "") {
@@ -35,6 +37,8 @@ export class Device {
         this._name = "";
         this._console = console;
         this._attachedEvents = [];
+        this._callbackIds = [];
+        this._eventsIds = [];
         this.isAttachedToResident = false;
     }
 
@@ -51,7 +55,7 @@ export class Device {
      * @param eventName The name of the event to listen to.
      * @param callback Function to execute when the event is triggered.
      */
-    onEvent(eventName: string, callback: () => void) {
+    onEvent(eventName: string, callback: () => void): string {
         this._attachEvent(eventName);
         let consoleEvent = (
             device: string,
@@ -62,49 +66,61 @@ export class Device {
                 callback();
             }
         };
-        this._console.onDeviceEvent(consoleEvent);
+        return this._console.onDeviceEvent(consoleEvent);
     }
 
     /**
      * Enables the cursor module and listens for coordinate updates.
      * @param callback Function to execute with the incoming (x, y) coordinates.
      */
-    onCursor(callback: (x: number, y: number) => void) {
+    onCursor(callback: (x: number, y: number) => void): string {
         this._enableModule("cursor");
         this._attachEvent("cursor");
-        this._console.onRequest((request, params, form, address) => {
-            if (request == "cursor" && address == this._address) {
-                callback(params.x, params.y);
-            }
-        });
+        let callbackId = this._console.onRequest(
+            (request, params, form, address) => {
+                if (request == "cursor" && address == this._address) {
+                    callback(params.x, params.y);
+                }
+            },
+        );
+        this._callbackIds.push(callbackId);
+        return callbackId;
     }
 
     /**
      * Enables the biking module and listens for speed updates.
      * @param callback Function to execute with the incoming speed data.
      */
-    onBiking(callback: (speed: number) => void) {
+    onBiking(callback: (speed: number) => void): string {
         this._enableModule("biking");
         this._attachEvent("biking");
-        this._console.onRequest((request, params, form, address) => {
-            if (request == "biking" && address == this._address) {
-                callback(params.speed);
-            }
-        });
+        let callbackId = this._console.onRequest(
+            (request, params, form, address) => {
+                if (request == "biking" && address == this._address) {
+                    callback(params.speed);
+                }
+            },
+        );
+        this._callbackIds.push(callbackId);
+        return callbackId;
     }
 
     /**
      * Enables the vertical detector module and listens for orientation updates.
      * @param callback Function to execute with the boolean vertical state.
      */
-    onVerticalDetector(callback: (vertical: boolean) => void) {
+    onVerticalDetector(callback: (vertical: boolean) => void): string {
         this._enableModule("vDetct");
         this._attachEvent("verticalDetector");
-        this._console.onRequest((request, params, form, address) => {
-            if (request == "verticalDetector" && address == this._address) {
-                callback(params.value);
-            }
-        });
+        let callbackId = this._console.onRequest(
+            (request, params, form, address) => {
+                if (request == "verticalDetector" && address == this._address) {
+                    callback(params.value);
+                }
+            },
+        );
+        this._callbackIds.push(callbackId);
+        return callbackId;
     }
 
     /**
@@ -189,6 +205,30 @@ export class Device {
         request.setDestination(PeerType.DEVICE, this._address);
         request.setRequest("vibrate");
         this._console.sendMessage(request);
+    }
+
+    public clearCallback(callbackId: string) {
+        if (this._callbackIds.includes(callbackId)) {
+            this._console.unsubscribeCallback(callbackId);
+        }
+    }
+
+    public clearAllCallbacks() {
+        for (let callbackId of this._callbackIds) {
+            this.clearCallback(callbackId);
+        }
+    }
+
+    public clearEvent(eventId: string) {
+        if (this._eventsIds.includes(eventId)) {
+            this._console.unsubscribeCallback(eventId);
+        }
+    }
+
+    public clearAllEvents() {
+        for (let eventId of this._eventsIds) {
+            this.clearCallback(eventId);
+        }
     }
 
     /**

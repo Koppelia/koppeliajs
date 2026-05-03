@@ -164,9 +164,9 @@ export class Koppelia {
             this._console.sendMessage(
                 getDevicesRequest,
                 (response: Message) => {
-                    let devices_raw: any = response.getParam("devices", []);
+                    let devicesRaw: any = response.getParam("devices", []);
                     let devices: Device[] = [];
-                    for (let device_raw of devices_raw) {
+                    for (let device_raw of devicesRaw) {
                         let device = new Device(this._console);
                         device.fromObject(device_raw);
                         devices.push(device);
@@ -175,6 +175,43 @@ export class Koppelia {
                 },
             );
         });
+    }
+
+    private _onDeviceConnNotification(
+        callback: (device: Device) => void,
+        notifName: string,
+    ): string {
+        return this._console.onRequest((request, params, from, address) => {
+            if (request == notifName) {
+                if (params.device !== undefined) {
+                    let device = new Device(this._console);
+                    device.fromObject(params.device);
+                    callback(device);
+                }
+            }
+        });
+    }
+
+    public onDeviceConnectedNotification(
+        callback: (device: Device) => void,
+    ): string {
+        return this._onDeviceConnNotification(
+            callback,
+            "deviceConnectionNotification",
+        );
+    }
+
+    public onDeviceDisconnectedNotification(
+        callback: (device: Device) => void,
+    ): string {
+        return this._onDeviceConnNotification(
+            callback,
+            "deviceDisconnectionNotification",
+        );
+    }
+
+    public unsubDeviceConnectionNotification(callbackId: string) {
+        this._console.unsubscribeCallback(callbackId);
     }
 
     /**
