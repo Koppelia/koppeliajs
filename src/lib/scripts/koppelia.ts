@@ -675,15 +675,23 @@ export class Koppelia {
     public on(
         callbackName: string,
         callback: (args: { [key: string]: any }) => void,
-    ) {
-        this._callbacks.registerCustomCallback(callbackName, callback);
+    ): string {
+        return this._callbacks.registerCustomCallback(callbackName, callback);
     }
 
     /**
      * Unregisters a locally listening custom callback.
-     * @param callbackName The identifier of the callback to remove.
+     * @param callbackName The name of the callbacks to remove.
      */
     public unsub(callbackName: string) {
         this._callbacks.unregisterCustomCallback(callbackName);
+    }
+
+    /**
+     * Unregisters a locally listening custom callback using its unique ID
+     * @param callbackId The identifier of the callback to remove.
+     */
+    public unsubById(callbackId: string) {
+        this._callbacks.unregisterById(callbackId);
     }
 }

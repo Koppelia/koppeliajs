@@ -4,35 +4,34 @@ import { Message, MessageType, PeerType } from "./message.js";
 
 /**
  * Manages the registration and network-wide execution of custom callbacks.
- * Allows different nodes in the system to broadcast and react to custom function calls.
+ * Supports multiple listeners for the same callback name.
  */
 export class CustomCallbacks {
     private _console: Console;
-    private _customCallbacks: {
-        [key: string]: (args: { [key: string]: any }) => void;
-    };
+    
+    /**
+     * Internal storage for callbacks.
+     * _registry: Map<uniqueId, { name: string, func: Function }>
+     */
+    private _registry: Map<string, { name: string, func: (args: { [key: string]: any }) => void }>;
+    
+    /**
+     * Quick lookup to find all unique IDs associated with a specific callback name.
+     * _nameToIds: Map<callbackName, Set<uniqueId>>
+     */
+    private _nameToIds: Map<string, Set<string>>;
 
     constructor(console: Console) {
         this._console = console;
-        this._console.onReady(() => {
-        });
-        this._customCallbacks = {};
+        this._registry = new Map();
+        this._nameToIds = new Map();
 
         this._console.onDataExchange((from: string, data: any) => {
             if (
                 data.customCallbackName != undefined &&
                 data.customCallbackArgs != undefined
             ) {
-                if (
-                    Object.hasOwn(
-                        this._customCallbacks,
-                        data.customCallbackName,
-                    )
-                ) {
-                    this._customCallbacks[data.customCallbackName](
-                        data.customCallbackArgs,
-                    );
-                }
+                this._executeLocalCallbacks(data.customCallbackName, data.customCallbackArgs);
             }
         });
     }
@@ -55,21 +54,84 @@ export class CustomCallbacks {
      * Registers a local function to be executed when a specific custom callback request is received.
      * @param name The identifier name for this callback.
      * @param callback The function to execute when triggered by the network.
+     * @returns A unique ID for this specific registration.
      */
     public registerCustomCallback(
         name: string,
         callback: (args: { [key: string]: any }) => void,
-    ) {
-        this._customCallbacks[name] = callback;
+    ): string {
+        const id = Math.random().toString(36).substring(2, 15);
+        
+        // Register the function in the main registry
+        this._registry.set(id, { name, func: callback });
+
+        // Add the ID to the name-based lookup table
+        if (!this._nameToIds.has(name)) {
+            this._nameToIds.set(name, new Set());
+        }
+        this._nameToIds.get(name)!.add(id);
+
+        return id;
     }
 
     /**
-     * Removes a previously registered custom callback from the local listener registry.
-     * @param name The identifier name of the callback to remove.
+     * Removes all listeners registered under a specific callback name.
+     * @param name The identifier name of the callbacks to remove.
      */
     public unregisterCustomCallback(name: string) {
-        if (Object.hasOwn(this._customCallbacks, name)) {
-            delete this._customCallbacks[name];
+        const ids = this._nameToIds.get(name);
+        if (ids) {
+            for (const id of ids) {
+                this._registry.delete(id);
+            }
+            this._nameToIds.delete(name);
+        }
+    }
+
+    /**
+     * Removes a specific listener using its unique registration ID.
+     * @param id The unique identifier returned by registerCustomCallback.
+     * @returns True if the callback was found and removed, false otherwise.
+     */
+    public unregisterById(id: string): boolean {
+        const entry = this._registry.get(id);
+        if (entry) {
+            const { name } = entry;
+            
+            // Remove from the main registry
+            this._registry.delete(id);
+            
+            // Remove from the name-based lookup table
+            const ids = this._nameToIds.get(name);
+            if (ids) {
+                ids.delete(id);
+                if (ids.size === 0) {
+                    this._nameToIds.delete(name);
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Internal method to trigger all local functions associated with a callback name.
+     * @param name The callback name received from the network.
+     * @param args The arguments received from the network.
+     */
+    private _executeLocalCallbacks(name: string, args: { [key: string]: any }) {
+        const ids = this._nameToIds.get(name);
+        if (ids) {
+            for (const id of ids) {
+                const entry = this._registry.get(id);
+                if (entry) {
+                    try {
+                        entry.func(args);
+                    } catch (error) {
+                        logger.log(`Error executing custom callback "${name}" (ID: ${id}):`, error);
+                    }
+                }
+            }
         }
     }
 }
