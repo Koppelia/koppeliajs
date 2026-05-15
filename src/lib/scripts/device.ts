@@ -110,6 +110,24 @@ export class Device {
     }
 
     /**
+     * Enables the biking module and listens for speed updates.
+     * @param callback Function to execute with the incoming speed data.
+     */
+    onRotation(callback: (omega: number) => void): string {
+        this._enableModule("rot");
+        this._attachEvent("rotation");
+        let callbackId = this._console.onRequest(
+            (request, params, form, address) => {
+                if (request == "rotation" && address == this._address) {
+                    callback(params.omega);
+                }
+            },
+        );
+        this._callbackIds.push(callbackId);
+        return callbackId;
+    }
+
+    /**
      * Enables the vertical detector module and listens for orientation updates.
      * @param callback Function to execute with the boolean vertical state.
      */
