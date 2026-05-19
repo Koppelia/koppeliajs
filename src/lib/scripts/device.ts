@@ -75,15 +75,15 @@ export class Device {
 
     /**
      * Enables the cursor module and listens for coordinate updates.
-     * @param callback Function to execute with the incoming (x, y) coordinates.
+     * @param callback Function to execute with the incoming (x, y, a) coordinates.
      */
-    onCursor(callback: (x: number, y: number) => void): string {
+    onCursor(callback: (x: number, y: number, a: number) => void): string {
         this._enableModule("cursor");
         this._attachEvent("cursor");
         let callbackId = this._console.onRequest(
             (request, params, form, address) => {
                 if (request == "cursor" && address == this._address) {
-                    callback(params.x, params.y);
+                    callback(params.x, params.y, params.a);
                 }
             },
         );
