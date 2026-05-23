@@ -362,6 +362,30 @@ export class Koppelia {
     }
 
     /**
+     * Asynchronously executes a named API function on the master peer with the given arguments.
+     * @param functionName The name of the API function to invoke.
+     * @param args A dictionary of string arguments to pass to the function.
+     * @returns A promise resolving to the result returned by the API function.
+     */
+    public async runApiFunction(
+        functionName: string,
+        args: Record<string, string>,
+    ): Promise<unknown> {
+        return new Promise((resolve, reject) => {
+            let request = new Message();
+            request.setRequest("runApiFunction");
+            request.addParam("functionName", functionName);
+            request.addParam("args", args);
+            request.setDestination(PeerType.MASTER, "");
+
+            this._console.sendMessage(request, (response: Message) => {
+                let result = response.getParam("result", null);
+                resolve(result);
+            });
+        });
+    }
+
+    /**
      * Enables a live difficulty cursor, allowing difficulty changes during gameplay.
      * @param callback Function to execute when the difficulty changes.
      */
