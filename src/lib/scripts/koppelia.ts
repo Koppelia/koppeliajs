@@ -362,6 +362,30 @@ export class Koppelia {
     }
 
     /**
+     * Asynchronously retrieves all currently selected Play instances set on the server.
+     * @returns A promise resolving to an array of active Play instances.
+     */
+    public async getCurrentPlays(): Promise<Play[]> {
+        return new Promise((resolve, reject) => {
+            let getCurrentPlaysRequest = new Message();
+            getCurrentPlaysRequest.setRequest("getCurrentPlays");
+            getCurrentPlaysRequest.setDestination(PeerType.MASTER, "");
+
+            this._console.sendMessage(
+                getCurrentPlaysRequest,
+                (response: Message) => {
+                    let playsRawList: { [key: string]: any } = response.getParam("plays", {});
+                    let plays: Play[] = [];
+                    for (let playId in playsRawList) {
+                        plays.push(new Play(this._console, playId, playsRawList[playId]));
+                    }
+                    resolve(plays);
+                },
+            );
+        });
+    }
+
+    /**
      * Asynchronously executes a named API function on the master peer with the given arguments.
      * @param functionName The name of the API function to invoke.
      * @param args A dictionary of string arguments to pass to the function.
