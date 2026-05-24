@@ -1,4 +1,5 @@
 import { Console } from "./console.js";
+import { MicLimitError } from "./errors.js";
 import { Message, MessageType, PeerType } from "./message.js";
 import { Resident } from "./resident.js";
 
@@ -14,6 +15,14 @@ type Vibration = {
     v: number; // time on (vibrating time)
     toff: number; // time off
     c: number; // number of cycles on/off
+};
+
+export type MicEffect = "echo" | "reverb" | null;
+
+export type MicConfig = {
+    volume: number;
+    effect?: MicEffect;
+    intensity?: number;
 };
 
 /**
@@ -169,6 +178,54 @@ export class Device {
         request.addParam("module", moduleName);
         request.setDestination(PeerType.DEVICE, this._address);
         request.setRequest("enableModule");
+        this._console.sendMessage(request);
+    }
+
+    /**
+     * Enables the microphone module on this device.
+     * Filarmonic enforces a maximum of 5 simultaneous mic modules.
+     * @throws {MicLimitError} if the 5-mic limit has been reached.
+     */
+    enableMic(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            let request = new Message();
+            request.addParam("module", "mic");
+            request.setDestination(PeerType.DEVICE, this._address);
+            request.setRequest("enableModule");
+            this._console.sendMessage(request, (response) => {
+                if (response.getType() === MessageType.ERROR) {
+                    const errMsg = response.getParam("error") ?? "Failed to enable mic module";
+                    reject(new MicLimitError(errMsg));
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    /**
+     * Disables the microphone module on this device and removes its audio sink in Maestro.
+     */
+    disableMic(): void {
+        let request = new Message();
+        request.addParam("module", "mic");
+        request.setDestination(PeerType.DEVICE, this._address);
+        request.setRequest("disableModule");
+        this._console.sendMessage(request);
+    }
+
+    /**
+     * Configures the audio sink for this device's microphone.
+     * Must be called after enableMic() succeeds.
+     * @param config The microphone sink configuration.
+     */
+    setMicConfig(config: MicConfig): void {
+        let request = new Message();
+        request.setDestination(PeerType.DEVICE, this._address);
+        request.setRequest("setMicConfig");
+        request.addParam("volume", config.volume);
+        if (config.effect !== undefined) request.addParam("effect", config.effect);
+        if (config.intensity !== undefined) request.addParam("intensity", config.intensity);
         this._console.sendMessage(request);
     }
 

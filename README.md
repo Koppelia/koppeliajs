@@ -151,6 +151,13 @@ The `Device` class is your bridge to the physical world. Instead of dealing with
 * `onCursor(callback(x, y))`: Translates IMU spatial movement into 2D coordinates.
 * `onBiking(callback(speed))`: Reads data if the modular controller is clipped to a physical exercise bike pedal.
 
+**Available Microphone Methods:**
+* `enableMic()`: Enables real-time microphone streaming for this device. Returns a `Promise<void>`.
+* `disableMic()`: Stops microphone streaming and removes the audio sink from Maestro.
+* `setMicConfig({ volume, effect, intensity })`: Updates playback volume and optional voice effects.
+
+Filarmonic enforces a maximum of 5 active microphones at the same time. If the limit is reached, `enableMic()` rejects with `MicLimitError`.
+
 #### Example
 ```typescript
 import { Koppelia, Device } from "@momo2555/koppeliajs";
@@ -179,6 +186,78 @@ koppelia.onReady(async () => {
     }
 });
 ```
+
+---
+
+### 3.1. Real-Time Microphone Streaming
+
+#### How it works & Capabilities
+The controller microphone can be streamed in real time to the console speakers. This is designed for games where the animator wants to temporarily amplify a resident, apply a playful voice effect, or create call-and-response mechanics.
+
+The audio path is intentionally low-latency:
+
+```text
+nRF52840 controller mic -> BLE audio characteristic -> AllegroLink -> UDP -> Maestro -> speakers
+```
+
+Filarmonic stays in the control path, not the audio path. It enables/disables the mic module, enforces the 5-mic limit, and forwards configuration commands to Maestro. The audio itself bypasses Filarmonic to avoid extra latency.
+
+**Configuration:**
+* `volume`: Number from `0` to `100`.
+* `effect`: `"echo"`, `"reverb"`, or `null`.
+* `intensity`: Number from `0.0` to `1.0`.
+
+Use microphone audio carefully in games: TV speakers can feed back into the controller microphone if the device is too close to the sound output. Prefer short push-to-talk interactions, moderate volume, and no effect by default.
+
+#### Example
+```typescript
+import { Koppelia, Device, MicLimitError, type MicConfig } from "@momo2555/koppeliajs";
+
+let koppelia = Koppelia.instance;
+
+koppelia.onReady(async () => {
+    const devices: Device[] = await koppelia.getDevices();
+    const device = devices[0];
+
+    const config: MicConfig = {
+        volume: 70,
+        effect: null,
+        intensity: 0.5,
+    };
+
+    try {
+        await device.enableMic();
+        device.setMicConfig(config);
+    } catch (error) {
+        if (error instanceof MicLimitError) {
+            console.warn("Too many microphones are already active.");
+            return;
+        }
+        throw error;
+    }
+
+    // Stop streaming when the microphone is no longer needed.
+    setTimeout(() => {
+        device.disableMic();
+    }, 10000);
+});
+```
+
+#### Push-To-Talk Pattern
+For most games, prefer a short-lived mic session controlled by the animator:
+
+```typescript
+async function startTalking(device: Device) {
+    await device.enableMic();
+    device.setMicConfig({ volume: 60, effect: null });
+}
+
+function stopTalking(device: Device) {
+    device.disableMic();
+}
+```
+
+Avoid leaving multiple microphones open during normal gameplay. If you use `"echo"` or `"reverb"`, keep `volume` lower because effects increase the risk of acoustic feedback.
 
 ---
 

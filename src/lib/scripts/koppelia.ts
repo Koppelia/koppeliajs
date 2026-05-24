@@ -374,11 +374,10 @@ export class Koppelia {
             this._console.sendMessage(
                 getCurrentPlaysRequest,
                 (response: Message) => {
-                    let playsRawList: { [key: string]: any } = response.getParam("plays", {});
-                    let plays: Play[] = [];
-                    for (let playId in playsRawList) {
-                        plays.push(new Play(this._console, playId, playsRawList[playId]));
-                    }
+                    let playsRawList: { [key: string]: any }[] = response.getParam("plays", []);
+                    let plays: Play[] = playsRawList.map((playData) =>
+                        new Play(this._console, playData.id, playData)
+                    );
                     resolve(plays);
                 },
             );
