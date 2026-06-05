@@ -1,6 +1,6 @@
 {
 	"name": "@momo2555/koppeliajs",
-	"version": "0.0.175",
+	"version": "0.0.176",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run package",
