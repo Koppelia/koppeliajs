@@ -9,7 +9,7 @@ class AudioInstance {
 
 	constructor(id: string, loop: boolean = false) {
 		this.id = id;
-		this.path = `/audios/${id}.mp3`;
+		this.path = `/gameassets/audios/${id}.mp3`;
 		this.loop = loop;
 		this.volume = 100; // Volume par défaut au max
 	}
