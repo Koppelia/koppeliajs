@@ -56,12 +56,17 @@ export class Console {
 
     constructor() {
         this.consoleHostname = "";
+        const isSSL = !import.meta.env.SSR && window.location.protocol === 'https:';
         if (!import.meta.env.SSR) {
             this.consoleHostname = window.location.hostname;
         }
-        let consoleUrl = "ws://" + this.consoleHostname + ":" + PORT;
+        const consoleUrl = isSSL
+            ? `wss://${this.consoleHostname}/ws`
+            : `ws://${this.consoleHostname}:${PORT}`;
         this.consoleSocket = new KoppeliaWebsocket(consoleUrl);
-        this._mediaApiUrl = "http://" + this.consoleHostname + ":" + API_PORT;
+        this._mediaApiUrl = isSSL
+            ? `https://${this.consoleHostname}`
+            : `http://${this.consoleHostname}:${API_PORT}`;
         this._ready = false;
 
         this._changeStateHandlers = {};

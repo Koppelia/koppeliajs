@@ -1,6 +1,6 @@
 {
 	"name": "@momo2555/koppeliajs",
-	"version": "0.0.174",
+	"version": "0.0.175",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run package",
@@ -33,7 +33,11 @@
 			"types": "./dist/server/index.d.ts",
 			"svelte": "./dist/server/index.js"
 		},
-		"./styles/fonts.css": "./dist/styles/fonts.css"
+		"./styles/fonts.css": "./dist/styles/fonts.css",
+		"./config": {
+			"types": "./dist/config/index.d.ts",
+			"default": "./dist/config/index.js"
+		}
 	},
 	"peerDependencies": {
 		"svelte": "^5.0.0"
