@@ -484,10 +484,14 @@ export class Koppelia {
      * Registers a new resizable text element with a default font size (Monitor only).
      * @param id The unique identifier for the text element.
      * @param defaultSize The default font size.
+     * @param minSize Optional minimum font size (default 0).
+     * @param maxSize Optional maximum font size (default 100).
      */
     public async registerNewResizableText(
         id: string,
         defaultSize: number,
+        minSize?: number,
+        maxSize?: number,
     ): Promise<void> {
         return new Promise((resolve, reject) => {
             if (get(routeType) == "monitor") {
@@ -495,6 +499,8 @@ export class Koppelia {
                 addGrowableElRequest.setRequest("addResizableText");
                 addGrowableElRequest.addParam("id", id);
                 addGrowableElRequest.addParam("defaultSize", defaultSize);
+                if (minSize !== undefined) addGrowableElRequest.addParam("minSize", minSize);
+                if (maxSize !== undefined) addGrowableElRequest.addParam("maxSize", maxSize);
                 addGrowableElRequest.setDestination(PeerType.MASTER, "");
 
                 this._console.sendMessage(

@@ -5,6 +5,8 @@
 
 	export let id: string = '';
 	export let defaultFontSize: number = 10;
+	export let minFontSize: number | undefined = undefined;
+	export let maxFontSize: number | undefined = undefined;
 
 	$: fontSize = defaultFontSize;
 	$: callbackId = "";
@@ -24,7 +26,7 @@
 			}
 		}
 		if (!resizableExist) {
-			await koppelia.registerNewResizableText(id, defaultFontSize);
+			await koppelia.registerNewResizableText(id, defaultFontSize, minFontSize, maxFontSize);
 		}
 		callbackId = koppelia.onResizableTextChanged(id, (newFontSize: number) => {
 			fontSize = newFontSize;
