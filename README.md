@@ -6,6 +6,46 @@ KoppeliaJS is a specialized framework designed to bridge the gap between game de
 
 ---
 
+## 📦 Installation (private — GitHub Packages)
+
+This SDK is published as the **private** package `@koppelia/koppeliajs` on **GitHub
+Packages**. One-time auth setup per machine (reuses your `gh` login, no PAT):
+
+```bash
+gh auth refresh -s read:packages
+npm config set //npm.pkg.github.com/:_authToken=$(gh auth token)
+```
+
+Then, in your project, point the scope at the registry and install:
+
+```bash
+echo "@koppelia:registry=https://npm.pkg.github.com" >> .npmrc
+npm install @koppelia/koppeliajs
+```
+
+## 🚀 Releasing a new version (maintainers)
+
+Versions are published automatically by CI on a git tag. `npm version` bumps
+`package.json`, commits, **and** creates the tag in one command:
+
+```bash
+npm version patch     # or: minor | major
+git push --follow-tags
+```
+
+The `Publish` GitHub Actions workflow (`.github/workflows/publish.yml`) then builds
+`dist/` (via `svelte-package`) and publishes to GitHub Packages using the repo's
+`GITHUB_TOKEN` — no manual `npm publish`, no PAT.
+
+Consumers on a `^x.y.z` range pick up **minor/patch** automatically on their next
+`npm install`. For a **major** bump, update every consumer's range in one pass:
+
+```bash
+bash tools/scripts/bump-koppeliajs.sh koppeliajs <new-version> --push
+```
+
+---
+
 ## 🌟 The Koppelia Ecosystem (Context)
 
 Koppelia is an asymmetric gaming console designed with a strict focus on cognitive accessibility and ergonomic physical interactions.
@@ -37,7 +77,7 @@ npm install
 npm run dev
 
 # Install the KoppeliaJS SDK
-npm install @momo2555/koppeliajs
+npm install @koppelia/koppeliajs
 ```
 
 ### 2. Configure the Environment
@@ -75,7 +115,7 @@ This is the cornerstone of **isomorphic game design**: you write one Svelte comp
 **In `src/routes/+layout.svelte`:**
 ```svelte
 <script>
-    import { updateRoute } from "@momo2555/koppeliajs";
+    import { updateRoute } from "@koppelia/koppeliajs";
     // Parses the URL and sets the store globally
     updateRoute();
 </script>
@@ -86,7 +126,7 @@ This is the cornerstone of **isomorphic game design**: you write one Svelte comp
 **In any component:**
 ```svelte
 <script>
-    import { routeType } from "@momo2555/koppeliajs";
+    import { routeType } from "@koppelia/koppeliajs";
 </script>
 
 {#if $routeType === 'monitor'}
@@ -112,7 +152,7 @@ Under the hood, when you mutate the state, KoppeliaJS performs a diffing operati
 #### Example
 ```svelte
 <script lang="ts">
-    import { Koppelia } from "@momo2555/koppeliajs";
+    import { Koppelia } from "@koppelia/koppeliajs";
     
     let koppelia = Koppelia.instance;
     let state = koppelia.state;
@@ -160,7 +200,7 @@ Filarmonic enforces a maximum of 5 active microphones at the same time. If the l
 
 #### Example
 ```typescript
-import { Koppelia, Device } from "@momo2555/koppeliajs";
+import { Koppelia, Device } from "@koppelia/koppeliajs";
 let koppelia = Koppelia.instance;
 
 koppelia.onReady(async () => {
@@ -211,7 +251,7 @@ Use microphone audio carefully in games: TV speakers can feed back into the cont
 
 #### Example
 ```typescript
-import { Koppelia, Device, MicLimitError, type MicConfig } from "@momo2555/koppeliajs";
+import { Koppelia, Device, MicLimitError, type MicConfig } from "@koppelia/koppeliajs";
 
 let koppelia = Koppelia.instance;
 
@@ -275,7 +315,7 @@ While `State` is used for persistent data, **Custom Callbacks** are designed for
 ```svelte
 <script lang="ts">
     import { onMount, onDestroy } from "svelte";
-    import { Koppelia, routeType } from "@momo2555/koppeliajs";
+    import { Koppelia, routeType } from "@koppelia/koppeliajs";
     let koppelia = Koppelia.instance;
 
     if ($routeType === 'monitor') {
@@ -320,7 +360,7 @@ Game Options allow the animator to adjust variables dynamically from their table
 
 #### Example
 ```typescript
-import { Koppelia, routeType } from "@momo2555/koppeliajs";
+import { Koppelia, routeType } from "@koppelia/koppeliajs";
 import { get } from "svelte/store";
 let koppelia = Koppelia.instance;
 
@@ -351,7 +391,7 @@ Koppelia games are "engines" populated by content stored in the Filarmonic datab
 
 #### Example
 ```typescript
-import { Koppelia, Resident, Play } from "@momo2555/koppeliajs";
+import { Koppelia, Resident, Play } from "@koppelia/koppeliajs";
 let koppelia = Koppelia.instance;
 
 koppelia.onReady(async () => {
@@ -381,7 +421,7 @@ A "Stage" correlates directly to a SvelteKit route (e.g., `home`, `game`, `expla
 
 #### Example
 ```typescript
-import { Koppelia } from "@momo2555/koppeliajs";
+import { Koppelia } from "@koppelia/koppeliajs";
 let koppelia = Koppelia.instance;
 
 // Called on the boot screen
@@ -406,7 +446,7 @@ Here is a comprehensive example demonstrating how Routing, State, Hardware, and 
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import { get } from "svelte/store";
-    import { routeType, Koppelia, Device } from "@momo2555/koppeliajs";
+    import { routeType, Koppelia, Device } from "@koppelia/koppeliajs";
     
     // Abstracted UI Components (Assumed to exist in your project)
     import QuestionDisplay from "$lib/components/QuestionDisplay.svelte";
