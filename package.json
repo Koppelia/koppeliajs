@@ -1,6 +1,13 @@
 {
-	"name": "@momo2555/koppeliajs",
-	"version": "0.0.178",
+	"name": "@koppelia/koppeliajs",
+	"version": "1.0.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Koppelia/koppeliajs.git"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run package",
@@ -11,7 +18,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
-		"pub": "vite build && npm publish --access public"
+		"pub": "npm run package && npm publish"
 	},
 	"files": [
 		"dist",
