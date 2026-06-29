@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-KoppeliaJS is a SvelteKit library SDK (`@momo2555/koppeliajs`) that game developers install into their SvelteKit projects to build games for the Koppelia console — an asymmetric gaming system for senior care facilities. The SDK is **not a game itself**; it's the framework games are built with.
+KoppeliaJS is a SvelteKit library SDK (`@koppelia/koppeliajs`) that game developers install into their SvelteKit projects to build games for the Koppelia console — an asymmetric gaming system for senior care facilities. The SDK is **not a game itself**; it's the framework games are built with.
+
+It is published as a **private** package on **GitHub Packages** (not public npm). Consumers authenticate with `gh` (see `tools/scripts/setup-npm-auth.sh` in the monorepo).
 
 ## Commands
 
@@ -16,8 +18,20 @@ npm run check        # Type-check with svelte-check
 npm run check:watch  # Type-check in watch mode
 npm run lint         # prettier + eslint
 npm run format       # Auto-format with prettier
-npm run pub          # Build and publish to npm (vite build && npm publish --access public)
+npm run pub          # Manual build + publish to GitHub Packages (normally done by CI)
 ```
+
+**Releasing:** publishing is automated by CI on a git tag. Bump + tag in one command,
+then push:
+
+```bash
+npm version patch    # or: minor | major  → bumps package.json, commits, tags vX.Y.Z
+git push --follow-tags
+```
+
+The `Publish` workflow (`.github/workflows/publish.yml`) builds `dist/` and publishes
+`@koppelia/koppeliajs` to GitHub Packages with the repo's `GITHUB_TOKEN` — no manual
+`npm publish`, no PAT. Consumers on a `^x.y.z` range pick up minor/patch automatically.
 
 There are no tests. Type-checking (`npm run check`) is the primary correctness gate.
 
