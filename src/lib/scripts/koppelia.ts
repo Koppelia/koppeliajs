@@ -262,12 +262,27 @@ export class Koppelia {
 
     /**
      * Asynchronously fetches the list of registered residents/players.
+     *
+     * Filarmonic paginates the resident list. Pass `count`/`index` to fetch a
+     * specific page (e.g. count=10, index=10 for the second page) and `findWord`
+     * to filter by name. Called with no arguments, no pagination params are sent
+     * (legacy behaviour).
      * @returns A promise resolving to an array of Resident instances.
      */
-    public async getResidents(): Promise<Resident[]> {
+    public async getResidents(
+        count?: number,
+        index?: number,
+        findWord?: string,
+    ): Promise<Resident[]> {
         return new Promise((resolve, reject) => {
             let getResidentsRequest = new Message();
             getResidentsRequest.setRequest("getResidentsList");
+            if (count !== undefined || index !== undefined || findWord !== undefined) {
+                getResidentsRequest.addParam("getRaw", false);
+                getResidentsRequest.addParam("count", count ?? 10);
+                getResidentsRequest.addParam("index", index ?? 0);
+                getResidentsRequest.addParam("findWord", findWord ?? "");
+            }
             getResidentsRequest.setDestination(PeerType.MASTER, "");
 
             this._console.sendMessage(
