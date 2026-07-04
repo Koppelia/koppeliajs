@@ -256,6 +256,53 @@ export class Koppelia {
     }
 
     /**
+     * Asks the console to open the shared resident-creation UI. The TV
+     * (spectakle) and the animator app both open it; when the animator creates
+     * a resident, `onResidentCreated` fires so the game can integrate it without
+     * reloading its list. Fire-and-forget.
+     * @param context Optional extra params forwarded to the UI (e.g. gameId).
+     */
+    public openCreateResident(context: { [key: string]: any } = {}): void {
+        let request = new Message();
+        request.setRequest("openCreateResident");
+        for (let key in context) {
+            request.addParam(key, context[key]);
+        }
+        request.setDestination(PeerType.MASTER, "");
+        this._console.sendMessage(request);
+    }
+
+    /**
+     * Fires when a resident is created via the externalized creation UI (see
+     * {@link openCreateResident}). The callback receives the freshly created
+     * Resident so the game can insert it (e.g. at the top of its list) without
+     * a full reload.
+     * @returns A subscription id to pass to `unsubscribeCallback`.
+     */
+    public onResidentCreated(callback: (resident: Resident) => void): string {
+        return this._console.onRequest((request, params) => {
+            if (request == "residentCreated" && params.resident !== undefined) {
+                let resident = new Resident();
+                resident.fromObject(params.resident);
+                callback(resident);
+            }
+        });
+    }
+
+    /**
+     * Fires when the resident-creation UI is closed without creating (cancel),
+     * so the game can re-enable its own UI.
+     * @returns A subscription id to pass to `unsubscribeCallback`.
+     */
+    public onCreateResidentClosed(callback: () => void): string {
+        return this._console.onRequest((request) => {
+            if (request == "closeCreateResident") {
+                callback();
+            }
+        });
+    }
+
+    /**
      * Asynchronously fetches a specific song by its unique ID.
      * @param songId The ID of the song to retrieve.
      * @returns A promise resolving to the corresponding Song instance.
