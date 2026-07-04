@@ -89,6 +89,10 @@ The Filarmonic media API runs at `http://<hostname>:8000`. Use `koppelia.getMedi
 
 ### Environment Variables
 
-Games using this SDK require:
-- `PUBLIC_GAME_ID` — unique game identifier (read inside `koppelia.ts` via `$env/static/public`)
-- `PUBLIC_MOCE_ENV` — environment flag (`dev` or production)
+The SDK reads no public environment variables. Games need no `.env` for the SDK
+(server-side game projects using `KoppeliaServerApi` read `GAME_ID` from
+`process.env` to locate their plays folder — that is unrelated to the client SDK).
+
+> Removed in 1.1.0: `PUBLIC_GAME_ID` / `getGameId()` / `getPlays()` (dead path —
+> plays are fetched via `getCurrentPlays()`, which needs no game id), and the
+> never-read `PUBLIC_MOCE_ENV`.

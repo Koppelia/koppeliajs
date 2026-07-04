@@ -6,7 +6,6 @@ import { Message, PeerType } from "./message.js";
 import { Stage } from "./stage.js";
 import { Device } from "./device.js";
 import { Play } from "./play.js";
-import { PUBLIC_GAME_ID } from "$env/static/public";
 import { Resident } from "./resident.js";
 import { Option, type OptionChangedCallback } from "./option.js";
 import { logger, setDebugMode } from "./logger.js";
@@ -212,52 +211,6 @@ export class Koppelia {
 
     public unsubDeviceConnectionNotification(callbackId: string) {
         this._console.unsubscribeCallback(callbackId);
-    }
-
-    /**
-     * Retrieves the unique identifier of the currently loaded game.
-     * @returns The game ID string provided by public environment variables.
-     */
-    public getGameId(): string {
-        return PUBLIC_GAME_ID;
-    }
-
-    /**
-     * Asynchronously fetches a paginated list of Play sessions.
-     * Note: This only fetches metadata. Specific Play content must be downloaded via Play methods.
-     * @param count Maximum number of plays to retrieve (default: 10).
-     * @param index The starting offset index (default: 0).
-     * @param orderBy Sorting criteria, e.g., "date" or "name" (default: "date").
-     * @returns A promise resolving to an array of Play instances.
-     */
-    public async getPlays(
-        count: number = 10,
-        index: number = 0,
-        orderBy: string = "date",
-    ): Promise<Play[]> {
-        return new Promise((resolve, reject) => {
-            let getPlaysRequest = new Message();
-            getPlaysRequest.setRequest("getPlaysList");
-            getPlaysRequest.addParam("gameId", this.getGameId());
-            getPlaysRequest.addParam("count", count);
-            getPlaysRequest.addParam("index", index);
-            getPlaysRequest.addParam("orderBy", orderBy);
-            getPlaysRequest.setDestination(PeerType.MASTER, "");
-
-            this._console.sendMessage(getPlaysRequest, (response: Message) => {
-                let playsRawList: { [key: string]: any } = response.getParam(
-                    "plays",
-                    {},
-                );
-                let plays: Play[] = [];
-                for (let playId in playsRawList) {
-                    plays.push(
-                        new Play(this._console, playId, playsRawList[playId]),
-                    );
-                }
-                resolve(plays);
-            });
-        });
     }
 
     /**
