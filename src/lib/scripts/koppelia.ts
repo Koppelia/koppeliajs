@@ -653,6 +653,25 @@ export class Koppelia {
     }
 
     /**
+     * Pre-generates and caches premium TTS audio for a list of sentences.
+     *
+     * Call this at game startup with every line the game may speak: the console
+     * synthesizes and caches each one ahead of time (nothing is played). Later
+     * `say(...)` calls for those sentences then play the cached premium audio
+     * instantly and offline. Sentences not pre-cached still work — they fall back
+     * to on-device synthesis on first use.
+     * @param texts The sentences to synthesize and cache ahead of time.
+     */
+    public runTtsCache(texts: string[]) {
+        let cacheRequest = new Message();
+        cacheRequest.setRequest("runTtsCache");
+        cacheRequest.addParam("texts", texts);
+        cacheRequest.setDestination(PeerType.MASTER, "");
+
+        this._console.sendMessage(cacheRequest);
+    }
+
+    /**
      * Assigns a basic value to a registered game option via the option manager.
      * @param name The unique name of the option.
      * @param value The value to set.
