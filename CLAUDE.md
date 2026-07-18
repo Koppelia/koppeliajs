@@ -16,6 +16,8 @@ npm run build        # Build + package for publishing (vite build && svelte-pack
 npm run package      # Package only (svelte-kit sync && svelte-package && publint)
 npm run check        # Type-check with svelte-check
 npm run check:watch  # Type-check in watch mode
+npm test             # Run the vitest unit suite once
+npm run test:watch   # Vitest in watch mode
 npm run lint         # prettier + eslint
 npm run format       # Auto-format with prettier
 npm run pub          # Manual build + publish to GitHub Packages (normally done by CI)
@@ -33,7 +35,27 @@ The `Publish` workflow (`.github/workflows/publish.yml`) builds `dist/` and publ
 `@koppelia/koppeliajs` to GitHub Packages with the repo's `GITHUB_TOKEN` — no manual
 `npm publish`, no PAT. Consumers on a `^x.y.z` range pick up minor/patch automatically.
 
-There are no tests. Type-checking (`npm run check`) is the primary correctness gate.
+## Tests
+
+Unit tests run on **vitest** (jsdom). `npm test` runs the suite; the `Publish`
+workflow gates every release on `npm run check` + `npm test`.
+
+- Config: `vitest.config.ts` aliases the SvelteKit virtual modules `$app/stores`
+  and `$app/navigation` to mocks under `src/test/mocks/`.
+- `src/test/setup.ts` stubs the browser `WebSocket` and `Audio` globals.
+- `src/test/mockConsole.ts` — `makeMockConsole()` is the workhorse: a fake
+  {@link Console} that records sent messages and lets a test drive inbound
+  network events (`trigger.*`) and answer requests (`respondLast`). Most classes
+  (`State`, `Stage`, `Option`, `Device`, `CustomCallbacks`, `Play`) are tested in
+  isolation through it; `Console`/`KoppeliaWebsocket`/`Koppelia` are tested against
+  the `MockWebSocket` stub directly.
+- Tests are co-located as `*.test.ts` next to their source. svelte-package emits
+  them into `dist/` but the `files` field (`!dist/**/*.test.*`) keeps them out of
+  the published tarball.
+- **`state.test.ts` pins the echo-suppression behaviour**, including a
+  `KNOWN BUG` characterization test: a state change made by a subscriber reacting
+  to an inbound update is swallowed (not broadcast). Flip that expectation when
+  the SDK echo suppression is fixed.
 
 ## Architecture
 
