@@ -87,47 +87,63 @@ export class State {
         });
 
         this._globalState.subscribe((newState: AnyState) => {
-            if (this._access) {
-                let update: { [key: string]: any } = {};
-                for (let entry in newState) {
-                    if (!Object.hasOwn(this._previousStateValue, entry)) {
-                        update[entry] = newState[entry];
-                    }
-                    else if (Array.isArray(newState[entry])) {
-                        if(JSON.stringify(this._previousStateValue[entry]) != JSON.stringify(newState[entry])) {
-                            update[entry] = newState[entry];
-                        }
-                    }
-                    else if (this._previousStateValue[entry] != newState[entry]) {
+            if (!this._access) return;
+
+            const force = this._forceState;
+            this._forceState = false;
+
+            let update: { [key: string]: any } = {};
+            for (let entry in newState) {
+                if (!Object.hasOwn(this._previousStateValue, entry)) {
+                    update[entry] = newState[entry];
+                }
+                else if (typeof newState[entry] === "object" && newState[entry] !== null) {
+                    // Deep value comparison for arrays AND plain objects. State is
+                    // JSON-syncable, so this reliably detects "no real change" — the
+                    // key to echo suppression below.
+                    if (JSON.stringify(this._previousStateValue[entry]) != JSON.stringify(newState[entry])) {
                         update[entry] = newState[entry];
                     }
                 }
-                
-                logger.log("change state NewState=", newState, "; update=", update, " currentState=", this._previousStateValue);
-                this._previousStateValue = structuredClone(newState);
-                
-                this._console.onReady(() => {
-                    let req = new Message();
-                    req.setRequest("changeState");
-                    req.addParam("state", this._forceState ? newState : update);
-                    req.addParam("update", !this._forceState);
-                    
-                    this._forceState = false;
-                    this._console.sendMessage(req);
-                });
+                else if (this._previousStateValue[entry] != newState[entry]) {
+                    update[entry] = newState[entry];
+                }
             }
+
+            logger.log("change state NewState=", newState, "; update=", update, " currentState=", this._previousStateValue);
+            this._previousStateValue = structuredClone(newState);
+
+            // Echo / loop guard: never broadcast an empty, non-forced diff. A state
+            // received from the network re-enters this subscriber, but its keys
+            // diff to nothing (see _onReceiveState priming _previousStateValue), so
+            // it is not re-broadcast. This replaces the old blanket-mute during
+            // receive — which also swallowed changes a subscriber made in reaction
+            // to the received state. Such a reaction now produces a non-empty diff
+            // and IS broadcast.
+            if (!force && Object.keys(update).length === 0) return;
+
+            this._console.onReady(() => {
+                let req = new Message();
+                req.setRequest("changeState");
+                req.addParam("state", force ? newState : update);
+                req.addParam("update", !force);
+                this._console.sendMessage(req);
+            });
         });
     }
 
     /**
      * Internal handler executed when a new state is received from the network.
-     * Temporarily blocks local store subscriptions to prevent echo-broadcasting the received state.
+     * Echo suppression is NOT done by muting the subscriber here (that also
+     * swallowed reactions to the received state). Instead, _previousStateValue is
+     * primed with the received values so the outgoing subscriber diffs them to
+     * nothing and its empty-update guard drops the echo. A subscriber that reacts
+     * by mutating state still broadcasts, because that produces a non-empty diff.
      * @param from The origin peer of the state.
      * @param receivedState The state object payload.
      * @param update Flag indicating if the payload is a partial update (true) or a full overwrite (false).
      */
     private _onReceiveState(from: string, receivedState: AnyState, update: boolean) {
-        this._access = false;
         if (update) {
             let state = get(this._globalState);
             for (let entry in receivedState) {
@@ -136,8 +152,8 @@ export class State {
             }
             this._globalState.set(state);
         } else {
+            this._previousStateValue = structuredClone(receivedState);
             this._globalState.set(receivedState);
         }
-        this._access = true;
     }
 }

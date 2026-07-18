@@ -17,14 +17,24 @@ describe('State outgoing broadcast', () => {
 		expect(last.getParam('update')).toBe(true);
 	});
 
-	it('does not broadcast keys whose value is unchanged', () => {
+	it('does not broadcast at all when nothing actually changed', () => {
 		const mock = makeMockConsole();
 		const s = new State(asConsole(mock), {});
-		s.updateState({ a: 1, b: 2 }); // prime
-		s.updateState({ a: 1, b: 2 }); // identical
+		s.updateState({ a: 1, b: 2 }); // prime → one broadcast
+		const before = mock.sentWithExec('changeState').length;
+		s.updateState({ a: 1, b: 2 }); // identical → empty diff → no broadcast
+		expect(mock.sentWithExec('changeState').length).toBe(before);
+	});
 
+	it('diffs object values by value: an unchanged object is not re-broadcast', () => {
+		const mock = makeMockConsole();
+		const s = new State(asConsole(mock), {});
+		s.updateState({ config: { v: 1 }, n: 0 }); // prime
+		const before = mock.sentWithExec('changeState').length;
+		s.updateState({ n: 1 }); // config object untouched
 		const last = mock.sentWithExec('changeState').at(-1)!;
-		expect(last.getParam('state')).toEqual({});
+		expect(mock.sentWithExec('changeState').length).toBe(before + 1);
+		expect(last.getParam('state')).toEqual({ n: 1 }); // config NOT included
 	});
 
 	it('detects array changes by value, not reference', () => {
@@ -73,11 +83,10 @@ describe('State inbound receive', () => {
 });
 
 describe('State echo-suppression edge cases', () => {
-	// CHARACTERIZATION of the known echo bug (see pictionary refactor cd52c9d):
-	// a NEW state change produced by a subscriber reacting to an inbound update is
-	// ALSO swallowed, because _access is still false for the whole receive. When
-	// the SDK echo suppression is fixed, flip this expectation to broadcast.
-	it('KNOWN BUG: a reaction made during receive is applied locally but NOT broadcast', () => {
+	// This was the echo bug (see pictionary refactor cd52c9d): a subscriber
+	// reacting to an inbound update by mutating state used to be swallowed. The fix
+	// (value diff + empty-update guard, no blanket mute) now broadcasts it.
+	it('broadcasts a reaction made during receive (echo-bug fix)', () => {
 		const mock = makeMockConsole();
 		const s = new State(asConsole(mock), {});
 		let reacted = false;
@@ -93,11 +102,40 @@ describe('State echo-suppression edge cases', () => {
 
 		// applied locally...
 		expect(get(s.state)).toMatchObject({ incoming: true, reaction: 'x' });
-		// ...but never sent on the wire (the bug)
-		const broadcastReaction = mock
+		// ...AND sent on the wire now.
+		const reactionBroadcasts = mock
 			.sentWithExec('changeState')
-			.some((m) => 'reaction' in ((m.getParam('state') as object) ?? {}));
-		expect(broadcastReaction).toBe(false);
+			.filter((m) => 'reaction' in ((m.getParam('state') as object) ?? {}));
+		expect(reactionBroadcasts).toHaveLength(1);
+	});
+
+	it('a reaction broadcast carries only the reaction keys, not the received echo', () => {
+		const mock = makeMockConsole();
+		const s = new State(asConsole(mock), {});
+		let reacted = false;
+		s.state.subscribe((st) => {
+			const state = st as Record<string, unknown>;
+			if (state.incoming && !reacted) {
+				reacted = true;
+				s.updateState({ reaction: 'x' });
+			}
+		});
+
+		mock.trigger.stateChange('master', { incoming: true }, true);
+
+		const reactionMsg = mock
+			.sentWithExec('changeState')
+			.find((m) => 'reaction' in ((m.getParam('state') as object) ?? {}))!;
+		expect(reactionMsg.getParam('state')).toEqual({ reaction: 'x' });
+		expect('incoming' in (reactionMsg.getParam('state') as object)).toBe(false);
+	});
+
+	it('does not broadcast anything for a pure echo (no reaction) — loop-safe', () => {
+		const mock = makeMockConsole();
+		const s = new State(asConsole(mock), { a: 1 });
+		const before = mock.sentWithExec('changeState').length;
+		mock.trigger.stateChange('master', { a: 2, obj: { k: 1 } }, true);
+		expect(mock.sentWithExec('changeState').length).toBe(before);
 	});
 
 	it('restores broadcasting after a receive completes', () => {
