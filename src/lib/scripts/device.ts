@@ -86,9 +86,16 @@ export class Device {
      * Enables the cursor module and listens for coordinate updates.
      * @param callback Function to execute with the incoming (x, y, a) coordinates.
      */
-    onCursor(callback: (x: number, y: number, a: number) => void): string {
+    onCursor(
+        callback: (x: number, y: number, a: number) => void,
+        fovx?: number,
+        fovy?: number,
+    ): string {
         this._enableModule("cursor");
         this._attachEvent("cursor");
+        if (fovx !== undefined || fovy !== undefined) {
+            this.setCursorFov(fovx, fovy);
+        }
         let callbackId = this._console.onRequest(
             (request, params, form, address) => {
                 if (request == "cursor" && address == this._address) {
@@ -98,6 +105,26 @@ export class Device {
         );
         this._callbackIds.push(callbackId);
         return callbackId;
+    }
+
+    /**
+     * Overrides the cursor field of view (the angle-to-screen mapping) for this
+     * device. The value is the angular span, in degrees, mapped to the full screen
+     * axis: a smaller FOV is more sensitive (a small head rotation reaches the
+     * edge). Takes effect live while the cursor module is enabled. The console
+     * clamps each value to [2, 170]°; the firmware defaults are 80° / 60° and are
+     * restored when the cursor module is disabled. Pass only the axis to change.
+     * @param fovx Horizontal field of view in degrees.
+     * @param fovy Vertical field of view in degrees.
+     */
+    setCursorFov(fovx?: number, fovy?: number): void {
+        if (fovx === undefined && fovy === undefined) return;
+        let request = new Message();
+        request.setDestination(PeerType.DEVICE, this._address);
+        request.setRequest("setCursorFov");
+        if (fovx !== undefined) request.addParam("fovx", fovx);
+        if (fovy !== undefined) request.addParam("fovy", fovy);
+        this._console.sendMessage(request);
     }
 
     /**

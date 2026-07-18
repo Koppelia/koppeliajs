@@ -203,3 +203,50 @@ describe('Device hardware event subscriptions', () => {
 		expect(mock.unsubscribeCallback).toHaveBeenCalledTimes(2);
 	});
 });
+
+describe('Device.setCursorFov', () => {
+	it('sends setCursorFov to the device with both axes', () => {
+		const mock = makeMockConsole();
+		const d = new Device(asConsole(mock), 'aa');
+		d.setCursorFov(90, 50);
+		const msg = mock.sentWithExec('setCursorFov').at(-1)!;
+		expect(msg.header.to).toBe(PeerType.DEVICE);
+		expect(msg.header.to_addr).toBe('aa');
+		expect(msg.getParam('fovx')).toBe(90);
+		expect(msg.getParam('fovy')).toBe(50);
+	});
+
+	it('sends only the axis that is provided', () => {
+		const mock = makeMockConsole();
+		const d = new Device(asConsole(mock), 'aa');
+		d.setCursorFov(90);
+		const msg = mock.sentWithExec('setCursorFov').at(-1)!;
+		expect(msg.getParam('fovx')).toBe(90);
+		expect(msg.getParam('fovy')).toBeNull();
+	});
+
+	it('sends nothing when no axis is provided', () => {
+		const mock = makeMockConsole();
+		const d = new Device(asConsole(mock), 'aa');
+		d.setCursorFov();
+		expect(mock.sentWithExec('setCursorFov')).toHaveLength(0);
+	});
+});
+
+describe('Device.onCursor field of view', () => {
+	it('forwards an initial FOV through setCursorFov when provided', () => {
+		const mock = makeMockConsole();
+		const d = new Device(asConsole(mock), 'aa');
+		d.onCursor(vi.fn(), 100, 70);
+		const msg = mock.sentWithExec('setCursorFov').at(-1)!;
+		expect(msg.getParam('fovx')).toBe(100);
+		expect(msg.getParam('fovy')).toBe(70);
+	});
+
+	it('does not send a FOV when none is given', () => {
+		const mock = makeMockConsole();
+		const d = new Device(asConsole(mock), 'aa');
+		d.onCursor(vi.fn());
+		expect(mock.sentWithExec('setCursorFov')).toHaveLength(0);
+	});
+});
