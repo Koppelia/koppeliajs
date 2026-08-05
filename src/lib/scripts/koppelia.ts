@@ -28,22 +28,40 @@ export class Koppelia {
     private constructor() {
         this._console = new Console();
         this._callbacks = new CustomCallbacks(this._console);
-        this._console.onReady(() => {
-            let type = get(routeType);
-            if (type == "controller") {
-                logger.log("identify controller");
-                this._console.identify(PeerType.CONTROLLER);
-            } else if (type == "monitor") {
-                logger.log("identify monitor");
-                this._console.identify(PeerType.MONITOR);
-            } else {
-                logger.log("Cannot identifiy type ", type);
-            }
-        });
+        this._console.onReady(() => this._identify());
 
         this._state = new State(this._console, {});
         this._stage = new Stage(this._console);
         this._option = new Option(this._console);
+    }
+
+    /**
+     * Identify to the master as soon as the route is known. The socket often
+     * opens before the root layout has called updateRoute() — identifying with
+     * an empty type (or not at all) leaves this peer invisible to the master's
+     * push routing: it can send requests fine but never receives a state
+     * broadcast again. So an unknown route is waited for, never dropped.
+     */
+    private _identify(): void {
+        const type = get(routeType);
+        if (type == "controller") {
+            logger.log("identify controller");
+            this._console.identify(PeerType.CONTROLLER);
+        } else if (type == "monitor") {
+            logger.log("identify monitor");
+            this._console.identify(PeerType.MONITOR);
+        } else {
+            logger.log("Route not resolved yet, deferring identification");
+            const unsubscribe = routeType.subscribe((resolved) => {
+                if (resolved !== "") {
+                    // Svelte calls subscribers synchronously on subscribe; the
+                    // empty-value guard makes that first call a no-op and the
+                    // unsubscribe below only runs once resolution happened.
+                    queueMicrotask(unsubscribe);
+                    this._identify();
+                }
+            });
+        }
     }
 
     /**
