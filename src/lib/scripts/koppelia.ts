@@ -805,14 +805,30 @@ export class Koppelia {
      * The console attaches the session, resolves the resident from the peer
      * table when the game did not supply one, and closes the session itself.
      *
+     * `options.activity` names WHICH activity these results belong to. Where an
+     * activity ends is a property of the game: a fresh route on a bike is a new
+     * one with its own effort and duration, a round of a quiz is not. Naming a
+     * different activity than the last report closes the current session and
+     * opens the next; naming the same one changes nothing, and a game that names
+     * none keeps one session per launch.
+     *
+     * It is a NAME, not a command, and that is deliberate: like everything else
+     * here it survives being replayed, duplicated by a second peer, or lost —
+     * the next report still carries it. Cumulative state restarts with each
+     * activity, and so does the session payload, which is not carried over.
+     *
      * @param participants One entry per participant. Sending an unchanged entry
      * again is harmless — same key, same row.
      */
-    public reportResults(participants: ParticipantResult[]): void {
+    public reportResults(
+        participants: ParticipantResult[],
+        options: { activity?: string } = {},
+    ): void {
         if (participants.length === 0) return;
         let request = new Message();
         request.setRequest("reportResults");
         request.addParam("participants", participants.map(serializeParticipant));
+        if (options.activity) request.addParam("activity", options.activity);
         request.setDestination(PeerType.MASTER, "");
         this._console.sendMessage(request);
     }
@@ -830,10 +846,14 @@ export class Koppelia {
      * derives it from the results it actually received, so it cannot disagree
      * with them.
      */
-    public reportSession(payload: { [key: string]: any }): void {
+    public reportSession(
+        payload: { [key: string]: any },
+        options: { activity?: string } = {},
+    ): void {
         let request = new Message();
         request.setRequest("reportSession");
         request.addParam("payload", payload);
+        if (options.activity) request.addParam("activity", options.activity);
         request.setDestination(PeerType.MASTER, "");
         this._console.sendMessage(request);
     }
