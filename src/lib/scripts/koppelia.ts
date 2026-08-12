@@ -805,39 +805,30 @@ export class Koppelia {
      * The console attaches the session, resolves the resident from the peer
      * table when the game did not supply one, and closes the session itself.
      *
+     * `options.activity` names WHICH activity these results belong to. Where an
+     * activity ends is a property of the game: a fresh route on a bike is a new
+     * one with its own effort and duration, a round of a quiz is not. Naming a
+     * different activity than the last report closes the current session and
+     * opens the next; naming the same one changes nothing, and a game that names
+     * none keeps one session per launch.
+     *
+     * It is a NAME, not a command, and that is deliberate: like everything else
+     * here it survives being replayed, duplicated by a second peer, or lost —
+     * the next report still carries it. Cumulative state restarts with each
+     * activity, and so does the session payload, which is not carried over.
+     *
      * @param participants One entry per participant. Sending an unchanged entry
      * again is harmless — same key, same row.
      */
-    public reportResults(participants: ParticipantResult[]): void {
+    public reportResults(
+        participants: ParticipantResult[],
+        options: { activity?: string } = {},
+    ): void {
         if (participants.length === 0) return;
         let request = new Message();
         request.setRequest("reportResults");
         request.addParam("participants", participants.map(serializeParticipant));
-        request.setDestination(PeerType.MASTER, "");
-        this._console.sendMessage(request);
-    }
-
-    /**
-     * Declares that a NEW ACTIVITY starts here: the console closes the running
-     * session and opens the next one.
-     *
-     * Where an activity ends is a property of the GAME, not of the platform. A
-     * fresh route on the bike is a new activity with its own effort and its own
-     * duration; a round of a quiz plainly is not. A game that never calls this
-     * keeps the default — one session per launch — so nothing changes until it
-     * asks.
-     *
-     * The console still owns the session: it writes when it started and ended,
-     * its status, and the participant count it derives from the results it
-     * received. This only says where one activity stops and the next begins.
-     *
-     * Call it BEFORE reporting anything for the new activity, and note that
-     * cumulative state restarts with it: the new session's rows begin at zero,
-     * because they describe a different activity.
-     */
-    public startNewSession(): void {
-        let request = new Message();
-        request.setRequest("startNewSession");
+        if (options.activity) request.addParam("activity", options.activity);
         request.setDestination(PeerType.MASTER, "");
         this._console.sendMessage(request);
     }
@@ -855,10 +846,14 @@ export class Koppelia {
      * derives it from the results it actually received, so it cannot disagree
      * with them.
      */
-    public reportSession(payload: { [key: string]: any }): void {
+    public reportSession(
+        payload: { [key: string]: any },
+        options: { activity?: string } = {},
+    ): void {
         let request = new Message();
         request.setRequest("reportSession");
         request.addParam("payload", payload);
+        if (options.activity) request.addParam("activity", options.activity);
         request.setDestination(PeerType.MASTER, "");
         this._console.sendMessage(request);
     }

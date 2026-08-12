@@ -135,27 +135,32 @@ describe('reportSession', () => {
 	});
 });
 
-describe('startNewSession', () => {
-	it('asks the console to close this activity and open the next', () => {
-		Koppelia.instance.startNewSession();
+describe('activity boundaries', () => {
+	it('names the activity a report belongs to', () => {
+		Koppelia.instance.reportResults([{ participantKey: 'p1', score: 3 }], {
+			activity: 'ride-2'
+		});
 
-		const sent = lastSent();
-		expect(sent.request.exec).toBe('startNewSession');
-		expect(sent.header.to).toBe(PeerType.MASTER);
+		expect(lastSent().request.params.activity).toBe('ride-2');
+	});
+
+	it('names it on the session payload too', () => {
+		Koppelia.instance.reportSession({ mode: 'course' }, { activity: 'ride-2' });
+
+		expect(lastSent().request.params.activity).toBe('ride-2');
+	});
+
+	it('sends no activity when the game names none', () => {
+		// One session per launch stays the default: nothing changes for a game
+		// that has no notion of rounds.
+		Koppelia.instance.reportResults([{ participantKey: 'p1', score: 3 }]);
+
+		expect(lastSent().request.params.activity).toBeUndefined();
 	});
 
 	it('carries no session id — the console owns that', () => {
-		// A game that could name a session could close somebody else's.
-		Koppelia.instance.startNewSession();
+		Koppelia.instance.reportResults([{ participantKey: 'p1' }], { activity: 'ride-2' });
 
 		expect(JSON.stringify(lastSent())).not.toContain('session_id');
-	});
-
-	it('is independent of the reporting calls', () => {
-		Koppelia.instance.reportResults([{ participantKey: 'p1', score: 3 }]);
-		Koppelia.instance.startNewSession();
-		Koppelia.instance.reportResults([{ participantKey: 'p1', score: 1 }]);
-
-		expect(sentExecs()).toEqual(['reportResults', 'startNewSession', 'reportResults']);
 	});
 });
