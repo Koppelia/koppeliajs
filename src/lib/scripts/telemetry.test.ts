@@ -134,3 +134,28 @@ describe('reportSession', () => {
 		expect(sentExecs()).toContain('reportResults');
 	});
 });
+
+describe('startNewSession', () => {
+	it('asks the console to close this activity and open the next', () => {
+		Koppelia.instance.startNewSession();
+
+		const sent = lastSent();
+		expect(sent.request.exec).toBe('startNewSession');
+		expect(sent.header.to).toBe(PeerType.MASTER);
+	});
+
+	it('carries no session id — the console owns that', () => {
+		// A game that could name a session could close somebody else's.
+		Koppelia.instance.startNewSession();
+
+		expect(JSON.stringify(lastSent())).not.toContain('session_id');
+	});
+
+	it('is independent of the reporting calls', () => {
+		Koppelia.instance.reportResults([{ participantKey: 'p1', score: 3 }]);
+		Koppelia.instance.startNewSession();
+		Koppelia.instance.reportResults([{ participantKey: 'p1', score: 1 }]);
+
+		expect(sentExecs()).toEqual(['reportResults', 'startNewSession', 'reportResults']);
+	});
+});

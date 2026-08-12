@@ -818,6 +818,31 @@ export class Koppelia {
     }
 
     /**
+     * Declares that a NEW ACTIVITY starts here: the console closes the running
+     * session and opens the next one.
+     *
+     * Where an activity ends is a property of the GAME, not of the platform. A
+     * fresh route on the bike is a new activity with its own effort and its own
+     * duration; a round of a quiz plainly is not. A game that never calls this
+     * keeps the default — one session per launch — so nothing changes until it
+     * asks.
+     *
+     * The console still owns the session: it writes when it started and ended,
+     * its status, and the participant count it derives from the results it
+     * received. This only says where one activity stops and the next begins.
+     *
+     * Call it BEFORE reporting anything for the new activity, and note that
+     * cumulative state restarts with it: the new session's rows begin at zero,
+     * because they describe a different activity.
+     */
+    public startNewSession(): void {
+        let request = new Message();
+        request.setRequest("startNewSession");
+        request.setDestination(PeerType.MASTER, "");
+        this._console.sendMessage(request);
+    }
+
+    /**
      * Reports collective context for the current session — what belongs to the
      * game as a whole rather than to any one player: difficulty, theme, number
      * of rounds.
