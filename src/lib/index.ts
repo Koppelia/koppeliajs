@@ -16,6 +16,7 @@ import { Play } from "./scripts/play.js";
 import { Resident } from "./scripts/resident.js";
 import { Song } from "./scripts/song.js";
 import type { MicConfig, MicEffect } from "./scripts/device.js";
+import type { ParticipantResult } from "./scripts/telemetry.js";
 
 import { updateRoute, routeType } from './stores/routeStore.js';
 import { audioManager, AudioManager  } from './stores/audioManager.js';
@@ -25,4 +26,4 @@ import { audioManager, AudioManager  } from './stores/audioManager.js';
 export { KBase, GrowableElement, Button, ResizableText }   // Compoenents
 
 export { updateRoute, routeType, Koppelia, Console, Message, Device, Play, Song, audioManager, Resident, AudioManager, MicLimitError};    //  libraries and store
-export type { MicConfig, MicEffect };
+export type { MicConfig, MicEffect, ParticipantResult };
