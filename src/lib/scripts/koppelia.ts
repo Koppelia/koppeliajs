@@ -11,6 +11,10 @@ import { Option, type OptionChangedCallback } from "./option.js";
 import { logger, setDebugMode } from "./logger.js";
 import { CustomCallbacks } from "./customCallback.js";
 import { Song } from "./song.js";
+import {
+    type ParticipantResult,
+    serializeParticipant,
+} from "./telemetry.js";
 
 /**
  * The main Koppelia framework entry point.
@@ -782,6 +786,56 @@ export class Koppelia {
         callback: (args: { [key: string]: any }) => void,
     ): string {
         return this._callbacks.registerCustomCallback(callbackName, callback);
+    }
+
+    /**
+     * Reports per-participant results for the current session.
+     *
+     * **Emit as you go, not only at the end.** `closeGame` does not warn the
+     * game — filarmonic notifies Spectakle and then kills the container, and the
+     * SDK has no close hook — so a game that saves everything for the last
+     * moment loses everything to a power cut. Reporting after each round costs
+     * at most the last round.
+     *
+     * **Always send cumulative state, never a delta.** "8 correct so far", not
+     * "+1 this round". Each call REPLACES the participant's row (the console
+     * upserts on the participant key), so a delta would overwrite the history
+     * instead of extending it.
+     *
+     * The console attaches the session, resolves the resident from the peer
+     * table when the game did not supply one, and closes the session itself.
+     *
+     * @param participants One entry per participant. Sending an unchanged entry
+     * again is harmless — same key, same row.
+     */
+    public reportResults(participants: ParticipantResult[]): void {
+        if (participants.length === 0) return;
+        let request = new Message();
+        request.setRequest("reportResults");
+        request.addParam("participants", participants.map(serializeParticipant));
+        request.setDestination(PeerType.MASTER, "");
+        this._console.sendMessage(request);
+    }
+
+    /**
+     * Reports collective context for the current session — what belongs to the
+     * game as a whole rather than to any one player: difficulty, theme, number
+     * of rounds.
+     *
+     * Cumulative like {@link reportResults}: each call replaces the session
+     * payload. Do NOT put per-player data here; it would not reach any resident's
+     * history.
+     *
+     * `participant_count` is deliberately NOT part of this call. The console
+     * derives it from the results it actually received, so it cannot disagree
+     * with them.
+     */
+    public reportSession(payload: { [key: string]: any }): void {
+        let request = new Message();
+        request.setRequest("reportSession");
+        request.addParam("payload", payload);
+        request.setDestination(PeerType.MASTER, "");
+        this._console.sendMessage(request);
     }
 
     /**
