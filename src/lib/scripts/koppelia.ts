@@ -11,6 +11,7 @@ import { Option, type OptionChangedCallback } from "./option.js";
 import { logger, setDebugMode } from "./logger.js";
 import { CustomCallbacks } from "./customCallback.js";
 import { Song } from "./song.js";
+import { ParticipantRegistry } from "./participants.js";
 import {
     type ParticipantResult,
     serializeParticipant,
@@ -28,10 +29,12 @@ export class Koppelia {
     private static _instance: Koppelia;
     private _option: Option;
     private _callbacks: CustomCallbacks;
+    private _participants: ParticipantRegistry;
 
     private constructor() {
         this._console = new Console();
         this._callbacks = new CustomCallbacks(this._console);
+        this._participants = new ParticipantRegistry(this._console);
         this._console.onReady(() => this._identify());
 
         this._state = new State(this._console, {});
@@ -786,6 +789,39 @@ export class Koppelia {
         callback: (args: { [key: string]: any }) => void,
     ): string {
         return this._callbacks.registerCustomCallback(callbackName, callback);
+    }
+
+    /**
+     * Who is playing on which controller.
+     *
+     * Tracks the resident bound to each address, keeps a binding number that
+     * counts up when a controller changes hands, and builds the telemetry rows
+     * from a game's own numbers. Games used to do this themselves and got it
+     * wrong the same two ways: keying on the name (which an animator can retype
+     * mid-game, losing a resident her score) and dropping `resident.id`.
+     */
+    public get participants(): ParticipantRegistry {
+        return this._participants;
+    }
+
+    /**
+     * Fires when a controller changes hands — a resident leaves, another sits
+     * down, and the animator re-associates the controller.
+     *
+     * A game cannot see this any other way: re-associating is a rename on the
+     * console side, and nothing went out when it happened before
+     * `KOPPELIA_0.19.2`. Without it a game keeps crediting whoever was bound when
+     * the controller last connected.
+     *
+     * @returns A subscription id to pass to `unsubscribeCallback`.
+     */
+    public onDeviceResidentChanged(
+        callback: (device: Device) => void,
+    ): string {
+        return this._onDeviceConnNotification(
+            callback,
+            "deviceResidentNotification",
+        );
     }
 
     /**
