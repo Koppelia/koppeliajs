@@ -124,6 +124,12 @@ export class ParticipantRegistry {
 		return this._known[address]?.residentId;
 	}
 
+	/** Whether this controller has been seen at all — including bound to nobody,
+	 *  which `residentFor` cannot distinguish from "never seen". */
+	public knows(address: string): boolean {
+		return this._known[address] !== undefined;
+	}
+
 	/**
 	 * Turn a game's own numbers into rows the console can file.
 	 *
@@ -132,13 +138,27 @@ export class ParticipantRegistry {
 	 * getting the second one wrong.
 	 */
 	public build(entries: ParticipantEntry[]): ParticipantResult[] {
-		return entries.map((entry) => ({
-			participantKey: this.keyFor(entry.address),
-			deviceId: entry.address,
-			residentId: this.residentFor(entry.address),
-			score: entry.score,
-			outcome: entry.outcome,
-			results: entry.results,
-		}));
+		return entries.map((entry) => {
+			// An address the registry has never met is a real warning, not noise.
+			// It means the seeding never happened, and the row about to be filed
+			// carries no resident AND a binding that cannot count up — so the next
+			// time that controller changes hands, the new resident writes into
+			// this row instead of opening her own. Loud here, because the damage
+			// only becomes visible weeks later on somebody's sheet.
+			if (this._known[entry.address] === undefined) {
+				logger.error(
+					`[participants] ${entry.address} was never tracked — its key cannot follow a rebind. ` +
+						`Call participants.track(device) for the controllers the game already knows about.`,
+				);
+			}
+			return {
+				participantKey: this.keyFor(entry.address),
+				deviceId: entry.address,
+				residentId: this.residentFor(entry.address),
+				score: entry.score,
+				outcome: entry.outcome,
+				results: entry.results,
+			};
+		});
 	}
 }

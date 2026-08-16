@@ -6,6 +6,15 @@ import { get, writable, type Writable } from "svelte/store";
 export type AnyState = { [key: string]: any }
 
 /**
+ * Reserved state key holding the activity counter (see `Koppelia.startNewActivity`).
+ *
+ * Prefixed so it cannot collide with a game's own field, and preserved across a
+ * wholesale `setState` — a game resetting itself for "Rejouer" must not erase the
+ * session boundary it just drew.
+ */
+export const ACTIVITY_STATE_KEY = "__kpActivity";
+
+/**
  * Manages the synchronized global state of the application.
  * Uses a Svelte writable store locally and syncs changes automatically with the server via the Console.
  */
@@ -57,7 +66,18 @@ export class State {
      * @param force If true, forces the entire state payload to be broadcasted instead of just the computed diffs.
      */
     public setState(newState: AnyState, force: boolean = false) {
-        this._forceState = force; 
+        this._forceState = force;
+        // The activity counter survives a wholesale state replacement.
+        //
+        // Half the catalogue resets its whole state on "Rejouer" (`init` on the
+        // home screen, `setState` with a fresh default). If the counter went with
+        // it, the boundary the game just drew would be erased and the second game
+        // would report into the first one's session — overwriting its rows, which
+        // is exactly what the boundary exists to prevent.
+        const previous = get(this._globalState)?.[ACTIVITY_STATE_KEY];
+        if (previous !== undefined && newState[ACTIVITY_STATE_KEY] === undefined) {
+            newState = { ...newState, [ACTIVITY_STATE_KEY]: previous };
+        }
         this._globalState.set(newState);
     }
 
