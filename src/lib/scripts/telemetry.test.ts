@@ -150,12 +150,15 @@ describe('activity boundaries', () => {
 		expect(lastSent().request.params.activity).toBe('ride-2');
 	});
 
-	it('sends no activity when the game names none', () => {
-		// One session per launch stays the default: nothing changes for a game
-		// that has no notion of rounds.
+	it('falls back to the launch activity when the game names none', () => {
+		// Was `toBeUndefined()`, and that was the bug: the console treats the
+		// FIRST name it hears as a label on the session the launch opened, so a
+		// game whose first game is anonymous wasted its first name and the first
+		// "Rejouer" rotated nothing. The launch is `partie-1`; the first
+		// `startNewActivity()` returns `partie-2`, which is the first rotation.
 		Koppelia.instance.reportResults([{ participantKey: 'p1', score: 3 }]);
 
-		expect(lastSent().request.params.activity).toBeUndefined();
+		expect(lastSent().request.params.activity).toBe('partie-1');
 	});
 
 	it('carries no session id — the console owns that', () => {
