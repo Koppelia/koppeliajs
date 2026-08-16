@@ -15,6 +15,19 @@ function respond(params: Record<string, unknown>) {
 	socketOf().emitMessage({ header: { id, from: 'master', type: 'response' }, request: { params } });
 }
 
+/** Answer a specific outbound request by name — `respond` only reaches the last
+ *  one, and opening the socket fires several at once (identify, getDevices,
+ *  getState, getGameOptions). */
+function respondTo(exec: string, params: Record<string, unknown>) {
+	const sent = socketOf().sent.map((s) => JSON.parse(s));
+	const target = sent.filter((m) => m.request?.exec === exec).at(-1);
+	if (target === undefined) throw new Error(`no outbound ${exec} to answer`);
+	socketOf().emitMessage({
+		header: { id: target.header.id, from: 'master', type: 'response' },
+		request: { params }
+	});
+}
+
 /** Simulate an inbound server-initiated request (drives onRequest handlers). */
 function emitRequest(exec: string, params: Record<string, unknown>, from = 'master', from_addr = '') {
 	socketOf().emitMessage({ header: { type: 'request', from, from_addr }, request: { exec, params } });
@@ -96,6 +109,42 @@ describe('Koppelia async fetchers', () => {
 		expect(devices).toHaveLength(1);
 		expect(devices[0].address).toBe('aa');
 		expect(devices[0].name).toBe('Pad');
+	});
+
+	it('tells the participant registry about controllers already connected', async () => {
+		// The registry only ever hears about controllers that connect or are
+		// re-bound AFTER it exists, and in a residence every controller is paired
+		// long before a game is launched. Untracked, an address gets binding 1 and
+		// no resident — and the next hand-over files the new resident into the
+		// SAME row, which is the collision the participant key exists to prevent.
+		const k = Koppelia.instance;
+		routeType.set('monitor');
+		socketOf().emitOpen();
+
+		expect(sentExecs()).toContain('getDevices');
+		respondTo('getDevices', {
+			devices: [
+				{
+					address: 'aa',
+					color: { r: 0, g: 0, b: 0 },
+					name: 'Pad',
+					resident: { id: 'res-1' },
+					isAssociatedToResident: true
+				}
+			]
+		});
+		// A macrotask, not two microtask turns: the reply crosses the request
+		// correlation, the promise, and the `.then` that tracks.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(k.participants.residentFor('aa')).toBe('res-1');
+
+		// And now the hand-over the seeding makes visible: a second resident on
+		// the same controller opens her own row instead of overwriting the first.
+		emitRequest('deviceResidentNotification', {
+			device: { address: 'aa', resident: { id: 'res-2' }, isAssociatedToResident: true }
+		});
+		expect(k.participants.keyFor('aa')).toBe('aa#b2');
 	});
 
 	it('getResidents without args sends no pagination params', async () => {

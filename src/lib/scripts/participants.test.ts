@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ParticipantRegistry } from './participants.js';
+import { logger } from './logger.js';
 import { makeMockConsole, asConsole } from '../../test/mockConsole.js';
 
 const A = 'AA:BB:CC:DD:EE:01';
@@ -148,6 +149,31 @@ describe('building the rows', () => {
 		registry.track(bound(A));
 
 		expect(registry.build([{ address: A, score: 1 }])[0].residentId).toBeUndefined();
+	});
+
+	it('says so loudly when asked about a controller it was never told about', () => {
+		// The silent version of this is the whole bug: an untracked address gets
+		// binding 1 and no resident, and the NEXT hand-over files the new resident
+		// into the same row. Two games shipped it independently.
+		const errors: unknown[] = [];
+		const spy = vi.spyOn(logger, 'error').mockImplementation((m) => errors.push(m));
+
+		registry.build([{ address: A, score: 3 }]);
+
+		expect(errors).toHaveLength(1);
+		expect(String(errors[0])).toContain(A);
+		spy.mockRestore();
+	});
+
+	it('stays quiet about a controller it knows', () => {
+		const errors: unknown[] = [];
+		const spy = vi.spyOn(logger, 'error').mockImplementation((m) => errors.push(m));
+
+		registry.track(bound(A, 'res-1'));
+		registry.build([{ address: A, score: 3 }]);
+
+		expect(errors).toHaveLength(0);
+		spy.mockRestore();
 	});
 
 	it('files the two halves of a rebind under different keys', () => {

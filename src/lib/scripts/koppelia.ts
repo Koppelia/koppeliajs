@@ -35,11 +35,45 @@ export class Koppelia {
         this._console = new Console();
         this._callbacks = new CustomCallbacks(this._console);
         this._participants = new ParticipantRegistry(this._console);
-        this._console.onReady(() => this._identify());
+        this._console.onReady(() => {
+            this._identify();
+            this._seedParticipants();
+        });
 
         this._state = new State(this._console, {});
         this._stage = new Stage(this._console);
         this._option = new Option(this._console);
+    }
+
+    /**
+     * Tell the participant registry about the controllers that were ALREADY
+     * connected when this game started.
+     *
+     * Without this the registry only ever hears about controllers that connect
+     * or are re-bound after it exists — and every controller in a residence is
+     * paired long before an animator launches a game, so in practice it hears
+     * about none of them. The consequence is not a missing row, it is a WRONG
+     * one: an untracked address answers `keyFor` with binding 1, and when the
+     * animator later hands that controller to somebody else, `track` sees an
+     * address it has never met, files it at binding 1 again, and fires no
+     * rebind. Same key, second resident — the console upserts, and the two
+     * women collapse into a single line whose `resident_id` is whoever was
+     * written last. That is exactly the collision the participant key was
+     * introduced to prevent (settled 2026-08-10).
+     *
+     * Two games shipped this bug independently before it was fixed here, which
+     * is the argument for the seeding living in the SDK rather than in each
+     * game's telemetry file.
+     *
+     * Best effort: a console that cannot answer leaves the registry as it was,
+     * and `build` warns rather than inventing a key.
+     */
+    private _seedParticipants(): void {
+        this.getDevices()
+            .then((devices) => {
+                for (const device of devices) this._participants.track(device);
+            })
+            .catch((e) => logger.error(`[participants] could not seed: ${e}`));
     }
 
     /**
