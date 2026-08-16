@@ -172,6 +172,17 @@ export class State {
             }
             this._globalState.set(state);
         } else {
+            // The activity counter survives here too, not just in `setState`.
+            //
+            // A forced whole-state broadcast (a peer calling `init`) arriving
+            // after a boundary was drawn would otherwise erase the counter on
+            // every peer at once — and the loss does not repair itself, because
+            // the console refuses to rotate a name it has already seen. Every
+            // subsequent game would merge into one session.
+            const previous = get(this._globalState)?.[ACTIVITY_STATE_KEY];
+            if (previous !== undefined && receivedState[ACTIVITY_STATE_KEY] === undefined) {
+                receivedState = { ...receivedState, [ACTIVITY_STATE_KEY]: previous };
+            }
             this._previousStateValue = structuredClone(receivedState);
             this._globalState.set(receivedState);
         }

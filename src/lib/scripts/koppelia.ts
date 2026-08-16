@@ -909,7 +909,10 @@ export class Koppelia {
         let request = new Message();
         request.setRequest("reportResults");
         request.addParam("participants", participants.map(serializeParticipant));
-        if (options.activity) request.addParam("activity", options.activity);
+        // Same default as `reportSession`. The two used to differ, and it only
+        // held because every game happens to send the session first: a game that
+        // reported results ALONE would have lost the boundary, silently.
+        request.addParam("activity", options.activity ?? this.currentActivity);
         request.setDestination(PeerType.MASTER, "");
         this._console.sendMessage(request);
     }
@@ -972,16 +975,33 @@ export class Koppelia {
         return `partie-${next}`;
     }
 
-    /** The activity name currently in force, or undefined before the first game. */
-    public get currentActivity(): string | undefined {
-        const count = this.__activityCount();
-        return count > 0 ? `partie-${count}` : undefined;
+    /**
+     * The activity name currently in force. NEVER undefined — and that is the
+     * whole point.
+     *
+     * The console's contract (`State.rotate_activity`) is that the FIRST name it
+     * ever hears LABELS the session the launch already opened; it does not ask
+     * for a new one. That is right for video-bike, which names every route
+     * including the first.
+     *
+     * So a game whose first game is anonymous wastes its first name: the first
+     * `startNewActivity()` after "Rejouer" would emit the first name filarmonic
+     * ever sees, get treated as a label, and rotate nothing. The replay would
+     * still overwrite the game before it — the exact bug the boundary exists to
+     * fix, still present and now harder to see.
+     *
+     * The launch therefore counts as `partie-1` from its very first report, and
+     * the first `startNewActivity()` returns `partie-2`, which is the first
+     * ROTATION. The counter starts at one because the first game is a game.
+     */
+    public get currentActivity(): string {
+        return `partie-${this.__activityCount()}`;
     }
 
     private __activityCount(): number {
         const raw = (get(this._state.state) as AnyState)?.[ACTIVITY_STATE_KEY];
         const count = Number(raw);
-        return Number.isFinite(count) && count > 0 ? count : 0;
+        return Number.isFinite(count) && count >= 1 ? count : 1;
     }
 
     /**

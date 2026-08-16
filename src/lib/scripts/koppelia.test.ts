@@ -476,16 +476,42 @@ describe('Koppelia resizable text (monitor-gated)', () => {
 });
 
 describe('activity boundaries — "Rejouer" must not overwrite the game before it', () => {
-	it('carries no activity before the first game is declared', () => {
+	it('names the LAUNCH partie-1, before any replay', () => {
+		// The console's contract: the first name it ever hears LABELS the session
+		// the launch already opened. A game whose first game is anonymous wastes
+		// its first name — the first `startNewActivity()` would be treated as a
+		// label and rotate nothing, so the first "Rejouer" would still overwrite.
 		const k = Koppelia.instance;
 		k.reportSession({ score: 1 });
-		expect(lastSent().request.params.activity).toBeUndefined();
+		expect(lastSent().request.params.activity).toBe('partie-1');
 	});
 
-	it('names a new activity on every replay', () => {
+	it('starts rotating at partie-2, which is the first real boundary', () => {
 		const k = Koppelia.instance;
-		expect(k.startNewActivity()).toBe('partie-1');
+		expect(k.currentActivity).toBe('partie-1');
 		expect(k.startNewActivity()).toBe('partie-2');
+		expect(k.startNewActivity()).toBe('partie-3');
+	});
+
+	it('sends the activity with results too, not only with the session', () => {
+		// The two defaults used to differ. It only held because every game sends
+		// the session first; a game reporting results ALONE lost the boundary.
+		const k = Koppelia.instance;
+		k.startNewActivity();
+		k.reportResults([{ participantKey: 'aa#b1', score: 3 }] as never);
+		expect(lastSent().request.params.activity).toBe('partie-2');
+	});
+
+	it('keeps the counter when a peer force-broadcasts a whole state', () => {
+		// `init` on another peer sends the full state with update=false. Without
+		// preservation the counter is erased on every peer at once — and the loss
+		// does not repair itself, because the console never rotates a name twice.
+		const k = Koppelia.instance;
+		k.startNewActivity();
+		socketOf().emitMessage({
+			header: { type: 'state', from: 'monitor', from_addr: '' },
+			request: { params: { state: { players: [] }, update: false } }
+		});
 		expect(k.currentActivity).toBe('partie-2');
 	});
 
@@ -496,7 +522,6 @@ describe('activity boundaries — "Rejouer" must not overwrite the game before i
 		// upserted, its smaller numbers REPLACED the first game's. A resident who
 		// scored 18, replayed and scored 4 finished the afternoon at 4.
 		const k = Koppelia.instance;
-		k.startNewActivity();
 		k.reportSession({ score: 18 });
 		expect(lastSent().request.params.activity).toBe('partie-1');
 
@@ -515,13 +540,12 @@ describe('activity boundaries — "Rejouer" must not overwrite the game before i
 
 		k.setState({ players: [], round: 0 });
 
-		expect(k.currentActivity).toBe('partie-2');
+		expect(k.currentActivity).toBe('partie-3');
 	});
 
 	it('lets a game name its own activity when it means something', () => {
 		// video-bike names a route; that is more useful than "partie-3".
 		const k = Koppelia.instance;
-		k.startNewActivity();
 		k.reportSession({ km: 4 }, { activity: 'parcours-lac' });
 		expect(lastSent().request.params.activity).toBe('parcours-lac');
 	});
