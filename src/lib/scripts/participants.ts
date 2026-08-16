@@ -124,6 +124,12 @@ export class ParticipantRegistry {
 		return this._known[address]?.residentId;
 	}
 
+	/** Whether this controller has been seen at all — including bound to nobody,
+	 *  which `residentFor` cannot distinguish from "never seen". */
+	public knows(address: string): boolean {
+		return this._known[address] !== undefined;
+	}
+
 	/**
 	 * Turn a game's own numbers into rows the console can file.
 	 *

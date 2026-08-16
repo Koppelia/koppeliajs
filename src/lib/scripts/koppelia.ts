@@ -1,7 +1,7 @@
 import { get, type Writable } from "svelte/store";
 import { routeType } from "../stores/routeStore.js";
 import { type AnyRequestCallback, Console } from "./console.js";
-import { type AnyState, State } from "./state.js";
+import { ACTIVITY_STATE_KEY, type AnyState, State } from "./state.js";
 import { Message, PeerType } from "./message.js";
 import { Stage } from "./stage.js";
 import { Device } from "./device.js";
@@ -71,7 +71,18 @@ export class Koppelia {
     private _seedParticipants(): void {
         this.getDevices()
             .then((devices) => {
-                for (const device of devices) this._participants.track(device);
+                for (const device of devices) {
+                    // Only addresses the registry has NEVER heard of. The snapshot
+                    // is already stale by the time it arrives: a
+                    // `deviceResidentNotification` landing between the request and
+                    // its reply is newer than what `getDevices` returned, and
+                    // replaying the snapshot over it would count a binding towards
+                    // the resident who just left the controller.
+                    if (this._participants.residentFor(device.address) === undefined
+                        && !this._participants.knows(device.address)) {
+                        this._participants.track(device);
+                    }
+                }
             })
             .catch((e) => logger.error(`[participants] could not seed: ${e}`));
     }
@@ -923,9 +934,54 @@ export class Koppelia {
         let request = new Message();
         request.setRequest("reportSession");
         request.addParam("payload", payload);
-        if (options.activity) request.addParam("activity", options.activity);
+        // The CURRENT activity travels by default. Without it, a game offering
+        // "Rejouer" inside the same container launch reported a second game into
+        // the first game's session — and because reports are cumulative and
+        // upserted, the second game's smaller numbers REPLACED the first's. A
+        // resident who scored 18, replayed, and scored 4 finished the afternoon
+        // at 4 on her sheet. See `startNewActivity`.
+        const activity = options.activity ?? this.currentActivity;
+        if (activity) request.addParam("activity", activity);
         request.setDestination(PeerType.MASTER, "");
         this._console.sendMessage(request);
+    }
+
+    /**
+     * Declare that a new game has started inside the same container launch.
+     *
+     * A telemetry session is one LAUNCH of a game container, and it closes at
+     * `closeGame`. "Rejouer" does not restart the container: the game resets its
+     * own counters and keeps reporting into the session that is already open. As
+     * reports are cumulative and upserted on `(session, participant_key)`, the
+     * fresh, smaller numbers overwrite what the previous game earned.
+     *
+     * Naming a new activity closes the current session and opens the next one,
+     * so each game keeps its own rows. Call it wherever a game returns to its
+     * home screen or otherwise zeroes what it has been counting — the same place
+     * the counters are reset.
+     *
+     * The counter lives in the SHARED state, so a tablet reload does not restart
+     * the numbering and merge two games into one. It is kept under a reserved key
+     * that `setState` and `init` preserve, because half the catalogue resets its
+     * whole state on "Rejouer" and would otherwise erase the boundary it just
+     * drew.
+     */
+    public startNewActivity(): string {
+        const next = this.__activityCount() + 1;
+        this._state.updateState({ [ACTIVITY_STATE_KEY]: next });
+        return `partie-${next}`;
+    }
+
+    /** The activity name currently in force, or undefined before the first game. */
+    public get currentActivity(): string | undefined {
+        const count = this.__activityCount();
+        return count > 0 ? `partie-${count}` : undefined;
+    }
+
+    private __activityCount(): number {
+        const raw = (get(this._state.state) as AnyState)?.[ACTIVITY_STATE_KEY];
+        const count = Number(raw);
+        return Number.isFinite(count) && count > 0 ? count : 0;
     }
 
     /**

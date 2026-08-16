@@ -147,6 +147,37 @@ describe('Koppelia async fetchers', () => {
 		expect(k.participants.keyFor('aa')).toBe('aa#b2');
 	});
 
+	it('does not let a stale snapshot count a binding towards the resident who left', async () => {
+		// `getDevices` answers with what was true when it was asked. A rebind
+		// landing between the request and its reply is NEWER; replaying the
+		// snapshot over it would move the binding back to the previous resident.
+		const k = Koppelia.instance;
+		routeType.set('monitor');
+		socketOf().emitOpen();
+
+		// The rebind arrives first — the registry now knows res-2 on binding 1.
+		emitRequest('deviceResidentNotification', {
+			device: { address: 'aa', resident: { id: 'res-2' }, isAssociatedToResident: true }
+		});
+
+		// ...and only then the (stale) snapshot, still showing res-1.
+		respondTo('getDevices', {
+			devices: [
+				{
+					address: 'aa',
+					color: { r: 0, g: 0, b: 0 },
+					name: 'Pad',
+					resident: { id: 'res-1' },
+					isAssociatedToResident: true
+				}
+			]
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(k.participants.residentFor('aa')).toBe('res-2');
+		expect(k.participants.keyFor('aa')).toBe('aa#b1');
+	});
+
 	it('getResidents without args sends no pagination params', async () => {
 		const k = Koppelia.instance;
 		const p = k.getResidents();
@@ -441,5 +472,57 @@ describe('Koppelia resizable text (monitor-gated)', () => {
 		k.onResizableTextChanged('title', cb);
 		emitRequest('resizableTextNotification', { id: 'title', fontSize: 24 });
 		expect(cb).toHaveBeenCalledWith(24);
+	});
+});
+
+describe('activity boundaries — "Rejouer" must not overwrite the game before it', () => {
+	it('carries no activity before the first game is declared', () => {
+		const k = Koppelia.instance;
+		k.reportSession({ score: 1 });
+		expect(lastSent().request.params.activity).toBeUndefined();
+	});
+
+	it('names a new activity on every replay', () => {
+		const k = Koppelia.instance;
+		expect(k.startNewActivity()).toBe('partie-1');
+		expect(k.startNewActivity()).toBe('partie-2');
+		expect(k.currentActivity).toBe('partie-2');
+	});
+
+	it('sends the current activity with every report, without being asked', () => {
+		// A telemetry session is one LAUNCH of a container and closes at
+		// `closeGame`. "Rejouer" does not restart the container, so a second game
+		// reported into the same session — and because reports are cumulative and
+		// upserted, its smaller numbers REPLACED the first game's. A resident who
+		// scored 18, replayed and scored 4 finished the afternoon at 4.
+		const k = Koppelia.instance;
+		k.startNewActivity();
+		k.reportSession({ score: 18 });
+		expect(lastSent().request.params.activity).toBe('partie-1');
+
+		k.startNewActivity();
+		k.reportSession({ score: 4 });
+		expect(lastSent().request.params.activity).toBe('partie-2');
+	});
+
+	it('survives the state reset the replay itself performs', () => {
+		// Half the catalogue calls `init` or `setState` with a fresh default on
+		// its home screen. If the counter went with it, the boundary just drawn
+		// would be erased and the next game would report into the old session.
+		const k = Koppelia.instance;
+		k.startNewActivity();
+		k.startNewActivity();
+
+		k.setState({ players: [], round: 0 });
+
+		expect(k.currentActivity).toBe('partie-2');
+	});
+
+	it('lets a game name its own activity when it means something', () => {
+		// video-bike names a route; that is more useful than "partie-3".
+		const k = Koppelia.instance;
+		k.startNewActivity();
+		k.reportSession({ km: 4 }, { activity: 'parcours-lac' });
+		expect(lastSent().request.params.activity).toBe('parcours-lac');
 	});
 });
