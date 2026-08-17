@@ -30,6 +30,10 @@ export class Koppelia {
     private _option: Option;
     private _callbacks: CustomCallbacks;
     private _participants: ParticipantRegistry;
+    /** Counts inbound state updates, so a pending boundary can wait for one. */
+    private __stateRevision = 0;
+    private __activityPending = false;
+    private __activityStateSeen = 0;
 
     private constructor() {
         this._console = new Console();
@@ -38,6 +42,12 @@ export class Koppelia {
         this._console.onReady(() => {
             this._identify();
             this._seedParticipants();
+        });
+        // Every state that arrives FROM the network bumps the revision. A pending
+        // boundary waits for one: it is the only signal that the monitor has
+        // actually restarted, as opposed to this peer having written the counter.
+        this._console.onStateChange(() => {
+            this.__stateRevision += 1;
         });
 
         this._state = new State(this._console, {});
@@ -912,7 +922,7 @@ export class Koppelia {
         // Same default as `reportSession`. The two used to differ, and it only
         // held because every game happens to send the session first: a game that
         // reported results ALONE would have lost the boundary, silently.
-        request.addParam("activity", options.activity ?? this.currentActivity);
+        request.addParam("activity", options.activity ?? this.__resolveActivity());
         request.setDestination(PeerType.MASTER, "");
         this._console.sendMessage(request);
     }
@@ -943,8 +953,9 @@ export class Koppelia {
         // upserted, the second game's smaller numbers REPLACED the first's. A
         // resident who scored 18, replayed, and scored 4 finished the afternoon
         // at 4 on her sheet. See `startNewActivity`.
-        const activity = options.activity ?? this.currentActivity;
-        if (activity) request.addParam("activity", activity);
+        // Sans garde, comme `reportResults` : `currentActivity` ne peut plus être
+        // undefined depuis que le lancement compte comme `partie-1`.
+        request.addParam("activity", options.activity ?? this.__resolveActivity());
         request.setDestination(PeerType.MASTER, "");
         this._console.sendMessage(request);
     }
@@ -973,6 +984,44 @@ export class Koppelia {
         const next = this.__activityCount() + 1;
         this._state.updateState({ [ACTIVITY_STATE_KEY]: next });
         return `partie-${next}`;
+    }
+
+    /**
+     * Ask for a boundary that lands only once the game's own state has moved on.
+     *
+     * For a game that reports from an explicit event — a round closing, a point
+     * scored — `startNewActivity()` is enough. For a game that reports from a
+     * SUBSCRIBER to the shared state, it is a trap: writing the counter wakes the
+     * subscriber in the same tick, and what it reads is still the game being
+     * closed. The first report under the new name then carries the OLD game.
+     *
+     * Two games hit this independently and each wrote its own fingerprint dance
+     * to work around it — one of which did not actually work, because it reset
+     * its counters before waking the subscriber, so the "unchanged payload" it
+     * was watching for had already changed. That is the argument for the
+     * mechanism living here.
+     *
+     * The rule is simple and does not depend on what a payload looks like: the
+     * boundary lands on the first report that arrives AFTER a state update the
+     * game did not make itself — i.e. after the monitor has actually restarted.
+     * Until then `currentActivity` keeps returning the old name, so a stray
+     * report files the closed game where it belongs.
+     */
+    public requestNewActivity(): void {
+        this.__activityPending = true;
+        this.__activityStateSeen = this.__stateRevision;
+    }
+
+    /**
+     * Called by the reporting path. Returns the activity to use, and lands a
+     * pending boundary once the state has genuinely moved.
+     */
+    private __resolveActivity(): string {
+        if (this.__activityPending && this.__stateRevision !== this.__activityStateSeen) {
+            this.__activityPending = false;
+            this.startNewActivity();
+        }
+        return this.currentActivity;
     }
 
     /**

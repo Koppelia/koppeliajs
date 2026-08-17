@@ -508,10 +508,7 @@ describe('activity boundaries — "Rejouer" must not overwrite the game before i
 		// does not repair itself, because the console never rotates a name twice.
 		const k = Koppelia.instance;
 		k.startNewActivity();
-		socketOf().emitMessage({
-			header: { type: 'state', from: 'monitor', from_addr: '' },
-			request: { params: { state: { players: [] }, update: false } }
-		});
+		emitRequest('changeState', { state: { players: [] }, update: false }, 'monitor');
 		expect(k.currentActivity).toBe('partie-2');
 	});
 
@@ -541,6 +538,40 @@ describe('activity boundaries — "Rejouer" must not overwrite the game before i
 		k.setState({ players: [], round: 0 });
 
 		expect(k.currentActivity).toBe('partie-3');
+	});
+
+	it('holds a requested boundary until the state actually moves', () => {
+		// The trap for a game that reports from a SUBSCRIBER to the shared state:
+		// writing the counter wakes the subscriber in the same tick, and what it
+		// reads is still the game being closed. The first report under the new
+		// name would carry the OLD game. Two games hit this independently.
+		const k = Koppelia.instance;
+		routeType.set('monitor');
+		socketOf().emitOpen();
+
+		k.requestNewActivity();
+
+		// A report arriving before the monitor has restarted still belongs to the
+		// game that just closed.
+		k.reportSession({ score: 18 });
+		expect(lastSent().request.params.activity).toBe('partie-1');
+
+		// The monitor sends a fresh state — the restart really happened.
+		emitRequest('changeState', { state: { level: 1 }, update: true }, 'monitor');
+
+		k.reportSession({ score: 4 });
+		expect(lastSent().request.params.activity).toBe('partie-2');
+	});
+
+	it('lands a held boundary on results too, not only on a session report', () => {
+		const k = Koppelia.instance;
+		routeType.set('monitor');
+		socketOf().emitOpen();
+		k.requestNewActivity();
+		emitRequest('changeState', { state: { level: 1 }, update: true }, 'monitor');
+
+		k.reportResults([{ participantKey: 'aa#b1', score: 3 }] as never);
+		expect(lastSent().request.params.activity).toBe('partie-2');
 	});
 
 	it('lets a game name its own activity when it means something', () => {
