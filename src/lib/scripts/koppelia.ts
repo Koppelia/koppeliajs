@@ -43,9 +43,20 @@ export class Koppelia {
             this._identify();
             this._seedParticipants();
         });
-        // Every state that arrives FROM the network bumps the revision. A pending
-        // boundary waits for one: it is the only signal that the monitor has
-        // actually restarted, as opposed to this peer having written the counter.
+        // Every state frame that arrives bumps the revision. A pending boundary
+        // waits for one.
+        //
+        // Note what this does NOT prove: the broker's `send_to_all` broadcasts a
+        // `changeState` to every monitor and controller WITHOUT excluding the
+        // sender, so a peer's own write comes back to it as an inbound frame. The
+        // revision therefore means "a state frame crossed the wire", not "the
+        // monitor restarted".
+        //
+        // That is enough for a game whose boundary request does not write state
+        // (bowlstar-revolution). A game that DOES write while waiting cannot be
+        // saved by any rule here — it has to stop writing, which is what donjon
+        // now does. Documented rather than papered over, because the distinction
+        // is exactly what two attempts at this got wrong.
         this._console.onStateChange(() => {
             this.__stateRevision += 1;
         });
