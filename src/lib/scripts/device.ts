@@ -184,7 +184,9 @@ export class Device {
      * @param callback Function to execute with the incoming (x, y) lean, in degrees.
      */
     onJoystick(callback: (x: number, y: number) => void): string {
-        this._enableModule("joystick");
+        // « joyst » on the wire: the firmware holds a module name in six
+        // characters. The request it answers with is still « joystick ».
+        this._enableModule("joyst");
         this._attachEvent("joystick");
         let callbackId = this._console.onRequest(
             (request, params, form, address) => {

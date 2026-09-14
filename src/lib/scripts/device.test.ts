@@ -226,7 +226,7 @@ describe('Device hardware event subscriptions', () => {
 		const cb = vi.fn();
 		d.onJoystick(cb);
 
-		expect(mock.sentWithExec('enableModule').at(-1)!.getParam('module')).toBe('joystick');
+		expect(mock.sentWithExec('enableModule').at(-1)!.getParam('module')).toBe('joyst');
 		expect(
 			mock.sentWithExec('attachEvent').map((message) => message.request.params.event),
 		).toContain('joystick');
