@@ -170,6 +170,34 @@ export class Device {
     }
 
     /**
+     * Enables the joystick module and listens for the lean of the controller.
+     *
+     * The controller as a joystick: where its cap leans, in DEGREES, in its own
+     * frame. Hold it with the USB hole towards you: `x > 0` leans to your right,
+     * `y > 0` leans away from you, and the length of `(x, y)` is the tilt from
+     * upright — 0 standing, 90 lying flat, up to 180 upside down. Absolute: the
+     * firmware reads it off gravity, so there is nothing to calibrate and
+     * nothing that drifts. Frames arrive when the controller moves by a degree,
+     * and at least once a second as a heartbeat.
+     *
+     * Needs firmware ≥ 0.3 on the controller; older firmware never answers.
+     * @param callback Function to execute with the incoming (x, y) lean, in degrees.
+     */
+    onJoystick(callback: (x: number, y: number) => void): string {
+        this._enableModule("joystick");
+        this._attachEvent("joystick");
+        let callbackId = this._console.onRequest(
+            (request, params, form, address) => {
+                if (request == "joystick" && address == this._address) {
+                    callback(params.x, params.y);
+                }
+            },
+        );
+        this._callbackIds.push(callbackId);
+        return callbackId;
+    }
+
+    /**
      * Enables the vertical detector module and listens for orientation updates.
      * @param callback Function to execute with the boolean vertical state.
      */

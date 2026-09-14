@@ -220,6 +220,24 @@ describe('Device hardware event subscriptions', () => {
 		expect(cb).toHaveBeenCalledWith(1.5);
 	});
 
+	it('onJoystick enables the module and forwards the lean for its address', () => {
+		const mock = makeMockConsole();
+		const d = new Device(asConsole(mock), 'aa');
+		const cb = vi.fn();
+		d.onJoystick(cb);
+
+		expect(mock.sentWithExec('enableModule').at(-1)!.getParam('module')).toBe('joystick');
+		expect(
+			mock.sentWithExec('attachEvent').map((message) => message.request.params.event),
+		).toContain('joystick');
+
+		mock.trigger.request('joystick', { x: -90, y: 12.5 }, 'device', 'aa');
+		expect(cb).toHaveBeenCalledWith(-90, 12.5);
+
+		mock.trigger.request('joystick', { x: 9, y: 9 }, 'device', 'zz'); // other device
+		expect(cb).toHaveBeenCalledTimes(1);
+	});
+
 	it('onVerticalDetector forwards the vertical flag for its address', () => {
 		const mock = makeMockConsole();
 		const d = new Device(asConsole(mock), 'aa');
