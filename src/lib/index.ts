@@ -17,7 +17,7 @@ import { Resident } from "./scripts/resident.js";
 import { Song } from "./scripts/song.js";
 import type { MicConfig, MicEffect } from "./scripts/device.js";
 import type { ParticipantResult } from "./scripts/telemetry.js";
-import { ParticipantRegistry } from "./scripts/participants.js";
+import { ParticipantRegistry, residentKey } from "./scripts/participants.js";
 import type { Participant, ParticipantEntry } from "./scripts/participants.js";
 
 import { updateRoute, routeType } from './stores/routeStore.js';
@@ -27,5 +27,5 @@ import { audioManager, AudioManager  } from './stores/audioManager.js';
 
 export { KBase, GrowableElement, Button, ResizableText }   // Compoenents
 
-export { updateRoute, routeType, Koppelia, Console, Message, Device, Play, Song, audioManager, Resident, AudioManager, MicLimitError, ParticipantRegistry};    //  libraries and store
+export { updateRoute, routeType, Koppelia, Console, Message, Device, Play, Song, audioManager, Resident, AudioManager, MicLimitError, ParticipantRegistry, residentKey};    //  libraries and store
 export type { MicConfig, MicEffect, ParticipantResult, Participant, ParticipantEntry };
