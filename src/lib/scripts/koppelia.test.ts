@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { residentKey } from './participants.js';
 import { get } from 'svelte/store';
 import { Koppelia } from './koppelia.js';
 import { PeerType } from './message.js';
@@ -154,7 +155,7 @@ describe('Koppelia async fetchers', () => {
 		emitRequest('deviceResidentNotification', {
 			device: { address: 'aa', resident: { id: 'res-2' }, isAssociatedToResident: true }
 		});
-		expect(k.participants.keyFor('aa')).toBe('aa#rres-2');
+		expect(k.participants.keyFor('aa')).toBe(residentKey('aa', 'res-2'));
 	});
 
 	it('does not let a stale snapshot count a binding towards the resident who left', async () => {
@@ -185,7 +186,7 @@ describe('Koppelia async fetchers', () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(k.participants.residentFor('aa')).toBe('res-2');
-		expect(k.participants.keyFor('aa')).toBe('aa#rres-2');
+		expect(k.participants.keyFor('aa')).toBe(residentKey('aa', 'res-2'));
 	});
 
 	it('getResidents without args sends no pagination params', async () => {

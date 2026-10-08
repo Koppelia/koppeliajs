@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ParticipantRegistry } from './participants.js';
+import { ParticipantRegistry, residentKey } from './participants.js';
 import { logger } from './logger.js';
 import { makeMockConsole, asConsole } from '../../test/mockConsole.js';
 
@@ -27,7 +27,7 @@ describe('who is on a controller', () => {
 		// points she had just won.
 		registry.track(bound(A, 'res-1'));
 
-		expect(registry.keyFor(A)).toBe(`${A}#rres-1`);
+		expect(registry.keyFor(A)).toBe(residentKey(A, 'res-1'));
 		expect(registry.residentFor(A)).toBe('res-1');
 	});
 
@@ -57,7 +57,7 @@ describe('a controller changing hands', () => {
 		registry.track(bound(A, 'res-2'));
 
 		expect(registry.keyFor(A)).not.toBe(first);
-		expect(registry.keyFor(A)).toBe(`${A}#rres-2`);
+		expect(registry.keyFor(A)).toBe(residentKey(A, 'res-2'));
 		expect(registry.residentFor(A)).toBe('res-2');
 	});
 
@@ -71,10 +71,10 @@ describe('a controller changing hands', () => {
 		expect(seen).toEqual([
 			{
 				address: A,
-				previousKey: `${A}#rres-1`,
+				previousKey: residentKey(A, 'res-1'),
 				previousResidentId: 'res-1',
 				residentId: 'res-2',
-				key: `${A}#rres-2`,
+				key: residentKey(A, 'res-2'),
 				resumed: false
 			}
 		]);
@@ -91,7 +91,7 @@ describe('a controller changing hands', () => {
 		registry.track(bound(A, 'res-1'));
 
 		expect(seen).toHaveLength(0);
-		expect(registry.keyFor(A)).toBe(`${A}#rres-1`);
+		expect(registry.keyFor(A)).toBe(residentKey(A, 'res-1'));
 	});
 
 	it('counts an unbinding as a change too', () => {
@@ -113,8 +113,8 @@ describe('a controller changing hands', () => {
 
 		registry.track(bound(A, 'res-3'));
 
-		expect(registry.keyFor(A)).toBe(`${A}#rres-3`);
-		expect(registry.keyFor(B)).toBe(`${B}#rres-2`);
+		expect(registry.keyFor(A)).toBe(residentKey(A, 'res-3'));
+		expect(registry.keyFor(B)).toBe(residentKey(B, 'res-2'));
 	});
 
 	it('does not let one broken listener stop the others', () => {
@@ -139,7 +139,7 @@ describe('building the rows', () => {
 
 		expect(rows).toEqual([
 			{
-				participantKey: `${A}#rres-1`,
+				participantKey: residentKey(A, 'res-1'),
 				deviceId: A,
 				residentId: 'res-1',
 				score: 8,
@@ -192,6 +192,16 @@ describe('building the rows', () => {
 	});
 });
 
+describe('the key does not carry the resident id', () => {
+	it('is stable for her, distinct from others, and does not contain her id', () => {
+		const id = '627891de-4ecc-495a-ad18-0b5d3d331aea';
+		expect(residentKey(A, id)).toBe(residentKey(A, id));
+		expect(residentKey(A, id)).not.toBe(residentKey(A, 'another'));
+		expect(residentKey(A, id)).not.toContain(id);
+		expect(residentKey(A, id).startsWith(`${A}#r`)).toBe(true);
+	});
+});
+
 describe('one person, one row — the split that used to halve her averages', () => {
 	it('gives her back HER key when the controller returns to her', () => {
 		// Renamed away from her and back: until 1.10 that was three keys (#b1,
@@ -214,9 +224,9 @@ describe('one person, one row — the split that used to halve her averages', ()
 		registry.track(bound(A, 'res-2'));
 		registry.track(bound(A, 'res-1'));
 
-		expect(registry.keyFor(A)).toBe(`${A}#rres-1`);
+		expect(registry.keyFor(A)).toBe(residentKey(A, 'res-1'));
 		registry.track(bound(A, 'res-2'));
-		expect(registry.keyFor(A)).toBe(`${A}#rres-2`);
+		expect(registry.keyFor(A)).toBe(residentKey(A, 'res-2'));
 	});
 
 	it('survives a page reload, which rebuilds the registry from scratch', () => {

@@ -16,9 +16,15 @@ import type { ParticipantResult } from './telemetry.js';
  *    thrown away on the same line, so no score could ever reach a person.
  *
  * The address is the identity. The resident on it can change — a resident leaves
- * and another sits down — so the key names WHO is on it: `<address>#r<residentId>`.
+ * and another sits down — so the key names WHO is on it: `<address>#r<fingerprint of residentId>`.
  * The first resident's row freezes with what she earned; the second starts her
  * own. Anything else merges two people into one line.
+ *
+ * The resident appears in the key as a FINGERPRINT, not as her id. The row
+ * already carries `resident_id`, and the database detaches it (`ON DELETE SET
+ * NULL`) when a resident is removed; an id copied into the key would survive
+ * that and quietly re-attach her care data to her. A fingerprint keeps the key
+ * stable without being the id.
  *
  * Until 1.10 the key carried a binding COUNTER instead (`#b1`, `#b2`, …). That
  * kept two people apart, but it also split ONE person: a controller renamed
@@ -154,7 +160,7 @@ export class ParticipantRegistry {
 	 */
 	public keyFor(address: string): string {
 		const known = this._known[address];
-		if (known?.residentId !== undefined) return `${address}#r${known.residentId}`;
+		if (known?.residentId !== undefined) return residentKey(address, known.residentId);
 		return `${address}#b${known?.anonymous ?? 1}`;
 	}
 
@@ -203,4 +209,27 @@ export class ParticipantRegistry {
 			};
 		});
 	}
+}
+
+/**
+ * `<address>#r<fingerprint>` — the same resident on the same controller always
+ * gets the same key, and the key does not contain her id.
+ *
+ * cyrb53, synchronous on purpose: `crypto.subtle` is async and absent outside a
+ * secure context, and a console tablet on plain HTTP over the LAN is exactly
+ * that. Not a security boundary — a stable pseudonym, 53 bits, so two residents
+ * of one controller in one launch cannot realistically collide.
+ */
+export function residentKey(address: string, residentId: string): string {
+	let h1 = 0xdeadbeef;
+	let h2 = 0x41c6ce57;
+	for (let i = 0; i < residentId.length; i++) {
+		const ch = residentId.charCodeAt(i);
+		h1 = Math.imul(h1 ^ ch, 2654435761);
+		h2 = Math.imul(h2 ^ ch, 1597334677);
+	}
+	h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+	h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+	const fingerprint = (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+	return `${address}#r${fingerprint}`;
 }
