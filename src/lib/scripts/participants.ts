@@ -1,7 +1,7 @@
-import type { Console } from "./console.js";
-import type { Device } from "./device.js";
-import { logger } from "./logger.js";
-import type { ParticipantResult } from "./telemetry.js";
+import type { Console } from './console.js';
+import type { Device } from './device.js';
+import { logger } from './logger.js';
+import type { ParticipantResult } from './telemetry.js';
 
 /**
  * Who is playing on which controller, and what to call them in telemetry.
@@ -16,23 +16,36 @@ import type { ParticipantResult } from "./telemetry.js";
  *    thrown away on the same line, so no score could ever reach a person.
  *
  * The address is the identity. The resident on it can change — a resident leaves
- * and another sits down — so the key carries a BINDING number that counts up
- * when that happens. The first resident's row freezes with what she earned; the
- * second starts her own. Anything else merges two people into one line.
+ * and another sits down — so the key names WHO is on it: `<address>#r<residentId>`.
+ * The first resident's row freezes with what she earned; the second starts her
+ * own. Anything else merges two people into one line.
+ *
+ * Until 1.10 the key carried a binding COUNTER instead (`#b1`, `#b2`, …). That
+ * kept two people apart, but it also split ONE person: a controller renamed
+ * away from her and back — or a monitor reload, which restarted every counter —
+ * gave her a second key in the same session, so one afternoon was recorded as
+ * two rows. A sum survives that; an average is halved and a record is hidden,
+ * and nothing downstream can put it back. Deriving the key from the resident
+ * makes her return to HER row, after a rebind or a reload alike.
+ *
+ * A controller bound to nobody still counts its stints (`#b1`, `#b2`): there is
+ * no person to return to, and two unknown players must not share a line.
  */
 
 export type Participant = {
 	address: string;
 	residentId?: string;
-	/** Counts up each time this controller changes hands. */
+	/** Counts up each time this controller changes hands. Descriptive only — the key no longer uses it for a resident. */
 	binding: number;
+	/** Which stint of "nobody" this is, for the key of an unbound controller. */
+	anonymous: number;
 };
 
 /** What a game supplies: its own numbers, against an address. */
 export type ParticipantEntry = {
 	address: string;
 	score?: number;
-	outcome?: ParticipantResult["outcome"];
+	outcome?: ParticipantResult['outcome'];
 	results?: { [key: string]: any };
 };
 
@@ -42,19 +55,29 @@ export type RebindListener = (event: {
 	previousKey: string;
 	previousResidentId?: string;
 	residentId?: string;
+	/** The key from now on. */
+	key: string;
+	/**
+	 * This resident already played on this controller earlier in the launch, and
+	 * `key` is HER earlier key. A game that keeps its tallies under the key picks
+	 * up where she left off; one that zeroes a counter on every rebind must not
+	 * report that zero under this key, or it overwrites what she had earned.
+	 */
+	resumed: boolean;
 }) => void;
 
 export class ParticipantRegistry {
 	private _console: Console;
 	private _known: Record<string, Participant> = {};
+	/** Every resident each controller has carried during this launch. */
+	private _held: Record<string, Set<string>> = {};
 	private _listeners: RebindListener[] = [];
 
 	constructor(console: Console) {
 		this._console = console;
 		this._console.onRequest((request, params) => {
 			if (
-				(request === "deviceResidentNotification" ||
-					request === "deviceConnectionNotification") &&
+				(request === 'deviceResidentNotification' || request === 'deviceConnectionNotification') &&
 				params?.device?.address !== undefined
 			) {
 				this.track(params.device as Device);
@@ -75,13 +98,12 @@ export class ParticipantRegistry {
 	}): Participant {
 		const address = device.address;
 		const residentId =
-			device.isAssociatedToResident === false
-				? undefined
-				: (device.resident?.id ?? undefined);
+			device.isAssociatedToResident === false ? undefined : (device.resident?.id ?? undefined);
 
 		const known = this._known[address];
 		if (known === undefined) {
-			this._known[address] = { address, residentId, binding: 1 };
+			this._known[address] = { address, residentId, binding: 1, anonymous: 1 };
+			if (residentId !== undefined) this.heldBy(address).add(residentId);
 			return this._known[address];
 		}
 		if (known.residentId === residentId) return known;
@@ -90,12 +112,21 @@ export class ParticipantRegistry {
 		const previousResidentId = known.residentId;
 		known.residentId = residentId;
 		known.binding += 1;
+		let resumed = false;
+		if (residentId === undefined) {
+			// A new stint of nobody: there is no person to return to.
+			known.anonymous += 1;
+		} else {
+			resumed = this.heldBy(address).has(residentId);
+			this.heldBy(address).add(residentId);
+		}
+		const key = this.keyFor(address);
 		logger.log(
-			`[participants] ${address} changed hands, now binding ${known.binding}`,
+			`[participants] ${address} changed hands, now ${key}${resumed ? ' (back to her row)' : ''}`
 		);
 		for (const listener of this._listeners) {
 			try {
-				listener({ address, previousKey, previousResidentId, residentId });
+				listener({ address, previousKey, previousResidentId, residentId, key, resumed });
 			} catch (e) {
 				logger.error(`[participants] rebind listener failed: ${e}`);
 			}
@@ -114,10 +145,21 @@ export class ParticipantRegistry {
 		this._listeners.push(listener);
 	}
 
-	/** The telemetry key for this controller as it stands. */
+	/**
+	 * The telemetry key for this controller as it stands.
+	 *
+	 * Derived from who is on it, not counted: the same resident on the same
+	 * controller gets the same key for the whole launch — after a rebind away
+	 * and back, and after a page reload that rebuilt this registry from scratch.
+	 */
 	public keyFor(address: string): string {
 		const known = this._known[address];
-		return `${address}#b${known?.binding ?? 1}`;
+		if (known?.residentId !== undefined) return `${address}#r${known.residentId}`;
+		return `${address}#b${known?.anonymous ?? 1}`;
+	}
+
+	private heldBy(address: string): Set<string> {
+		return (this._held[address] ??= new Set());
 	}
 
 	public residentFor(address: string): string | undefined {
@@ -148,7 +190,7 @@ export class ParticipantRegistry {
 			if (this._known[entry.address] === undefined) {
 				logger.error(
 					`[participants] ${entry.address} was never tracked — its key cannot follow a rebind. ` +
-						`Call participants.track(device) for the controllers the game already knows about.`,
+						`Call participants.track(device) for the controllers the game already knows about.`
 				);
 			}
 			return {
@@ -157,7 +199,7 @@ export class ParticipantRegistry {
 				residentId: this.residentFor(entry.address),
 				score: entry.score,
 				outcome: entry.outcome,
-				results: entry.results,
+				results: entry.results
 			};
 		});
 	}

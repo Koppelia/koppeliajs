@@ -154,7 +154,7 @@ describe('Koppelia async fetchers', () => {
 		emitRequest('deviceResidentNotification', {
 			device: { address: 'aa', resident: { id: 'res-2' }, isAssociatedToResident: true }
 		});
-		expect(k.participants.keyFor('aa')).toBe('aa#b2');
+		expect(k.participants.keyFor('aa')).toBe('aa#rres-2');
 	});
 
 	it('does not let a stale snapshot count a binding towards the resident who left', async () => {
@@ -185,7 +185,7 @@ describe('Koppelia async fetchers', () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(k.participants.residentFor('aa')).toBe('res-2');
-		expect(k.participants.keyFor('aa')).toBe('aa#b1');
+		expect(k.participants.keyFor('aa')).toBe('aa#rres-2');
 	});
 
 	it('getResidents without args sends no pagination params', async () => {

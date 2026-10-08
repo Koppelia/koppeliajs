@@ -27,7 +27,7 @@ describe('who is on a controller', () => {
 		// points she had just won.
 		registry.track(bound(A, 'res-1'));
 
-		expect(registry.keyFor(A)).toBe(`${A}#b1`);
+		expect(registry.keyFor(A)).toBe(`${A}#rres-1`);
 		expect(registry.residentFor(A)).toBe('res-1');
 	});
 
@@ -57,7 +57,7 @@ describe('a controller changing hands', () => {
 		registry.track(bound(A, 'res-2'));
 
 		expect(registry.keyFor(A)).not.toBe(first);
-		expect(registry.keyFor(A)).toBe(`${A}#b2`);
+		expect(registry.keyFor(A)).toBe(`${A}#rres-2`);
 		expect(registry.residentFor(A)).toBe('res-2');
 	});
 
@@ -71,9 +71,11 @@ describe('a controller changing hands', () => {
 		expect(seen).toEqual([
 			{
 				address: A,
-				previousKey: `${A}#b1`,
+				previousKey: `${A}#rres-1`,
 				previousResidentId: 'res-1',
-				residentId: 'res-2'
+				residentId: 'res-2',
+				key: `${A}#rres-2`,
+				resumed: false
 			}
 		]);
 	});
@@ -89,7 +91,7 @@ describe('a controller changing hands', () => {
 		registry.track(bound(A, 'res-1'));
 
 		expect(seen).toHaveLength(0);
-		expect(registry.keyFor(A)).toBe(`${A}#b1`);
+		expect(registry.keyFor(A)).toBe(`${A}#rres-1`);
 	});
 
 	it('counts an unbinding as a change too', () => {
@@ -97,9 +99,11 @@ describe('a controller changing hands', () => {
 		// resident who was there.
 		registry.track(bound(A, 'res-1'));
 
+		const hers = registry.keyFor(A);
 		registry.track(bound(A));
 
-		expect(registry.keyFor(A)).toBe(`${A}#b2`);
+		expect(registry.keyFor(A)).not.toBe(hers);
+		expect(registry.keyFor(A)).toMatch(/#b\d+$/);
 		expect(registry.residentFor(A)).toBeUndefined();
 	});
 
@@ -109,8 +113,8 @@ describe('a controller changing hands', () => {
 
 		registry.track(bound(A, 'res-3'));
 
-		expect(registry.keyFor(A)).toBe(`${A}#b2`);
-		expect(registry.keyFor(B)).toBe(`${B}#b1`);
+		expect(registry.keyFor(A)).toBe(`${A}#rres-3`);
+		expect(registry.keyFor(B)).toBe(`${B}#rres-2`);
 	});
 
 	it('does not let one broken listener stop the others', () => {
@@ -135,7 +139,7 @@ describe('building the rows', () => {
 
 		expect(rows).toEqual([
 			{
-				participantKey: `${A}#b1`,
+				participantKey: `${A}#rres-1`,
 				deviceId: A,
 				residentId: 'res-1',
 				score: 8,
@@ -185,5 +189,66 @@ describe('building the rows', () => {
 		expect(before[0].participantKey).not.toBe(after[0].participantKey);
 		expect(before[0].residentId).toBe('res-1');
 		expect(after[0].residentId).toBe('res-2');
+	});
+});
+
+describe('one person, one row — the split that used to halve her averages', () => {
+	it('gives her back HER key when the controller returns to her', () => {
+		// Renamed away from her and back: until 1.10 that was three keys (#b1,
+		// #b2, #b3) and her afternoon became two rows — a streak of six recorded
+		// as 3 + 3 read as 3 on her sheet.
+		const seen: { key: string; resumed: boolean }[] = [];
+		registry.track(bound(A, 'res-1'));
+		const hers = registry.keyFor(A);
+		registry.onRebind((e) => seen.push({ key: e.key, resumed: e.resumed }));
+
+		registry.track(bound(A));
+		registry.track(bound(A, 'res-1'));
+
+		expect(registry.keyFor(A)).toBe(hers);
+		expect(seen.at(-1)).toEqual({ key: hers, resumed: true });
+	});
+
+	it('still keeps two people apart, both ways round', () => {
+		registry.track(bound(A, 'res-1'));
+		registry.track(bound(A, 'res-2'));
+		registry.track(bound(A, 'res-1'));
+
+		expect(registry.keyFor(A)).toBe(`${A}#rres-1`);
+		registry.track(bound(A, 'res-2'));
+		expect(registry.keyFor(A)).toBe(`${A}#rres-2`);
+	});
+
+	it('survives a page reload, which rebuilds the registry from scratch', () => {
+		// The monitor reloading mid-game used to restart every counter at #b1 —
+		// so a resident on her second binding came back under somebody else's
+		// key, and her next cumulative report overwrote THEIR row.
+		registry.track(bound(A, 'res-1'));
+		registry.track(bound(A, 'res-2'));
+		const before = registry.keyFor(A);
+
+		const reloaded = new ParticipantRegistry(asConsole(makeMockConsole()));
+		reloaded.track(bound(A, 'res-2'));
+
+		expect(reloaded.keyFor(A)).toBe(before);
+	});
+
+	it('gives two separate stints of nobody two rows', () => {
+		// No person to return to — and two unknown players must not share a line.
+		registry.track(bound(A));
+		const first = registry.keyFor(A);
+		registry.track(bound(A, 'res-1'));
+		registry.track(bound(A));
+
+		expect(registry.keyFor(A)).not.toBe(first);
+	});
+
+	it('gives the same resident on two controllers two rows', () => {
+		// Two controllers are two participants in the game; merging them would
+		// let one controller's cumulative report overwrite the other's.
+		registry.track(bound(A, 'res-1'));
+		registry.track(bound(B, 'res-1'));
+
+		expect(registry.keyFor(A)).not.toBe(registry.keyFor(B));
 	});
 });
