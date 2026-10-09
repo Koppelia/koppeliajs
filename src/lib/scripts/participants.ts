@@ -50,6 +50,14 @@ export type Participant = {
 /** What a game supplies: its own numbers, against an address. */
 export type ParticipantEntry = {
 	address: string;
+	/**
+	 * The key these numbers were counted under, when the game kept it — e.g.
+	 * tallies stored per `keyFor(address)`. Pass it whenever a row may be about
+	 * somebody who no longer holds the controller: the row then goes to the
+	 * person who EARNED it. Without it, the row is filed under whoever holds
+	 * the controller at the moment of sending.
+	 */
+	participantKey?: string;
 	score?: number;
 	outcome?: ParticipantResult['outcome'];
 	results?: { [key: string]: any };
@@ -75,6 +83,13 @@ export type RebindListener = (event: {
 export class ParticipantRegistry {
 	private _console: Console;
 	private _known: Record<string, Participant> = {};
+	/**
+	 * Who each key ever minted belongs to (`null` = nobody). A key outlives the
+	 * hand that held the controller: a game re-sending a previous player's
+	 * cumulative row must still file it under HER, not under whoever holds the
+	 * controller when the report goes out.
+	 */
+	private _keyOwner: Record<string, string | null> = {};
 	/** Every resident each controller has carried during this launch. */
 	private _held: Record<string, Set<string>> = {};
 	private _listeners: RebindListener[] = [];
@@ -110,6 +125,7 @@ export class ParticipantRegistry {
 		if (known === undefined) {
 			this._known[address] = { address, residentId, binding: 1, anonymous: 1 };
 			if (residentId !== undefined) this.heldBy(address).add(residentId);
+			this._keyOwner[this.keyFor(address)] = residentId ?? null;
 			return this._known[address];
 		}
 		if (known.residentId === residentId) return known;
@@ -127,6 +143,7 @@ export class ParticipantRegistry {
 			this.heldBy(address).add(residentId);
 		}
 		const key = this.keyFor(address);
+		this._keyOwner[key] = residentId ?? null;
 		logger.log(
 			`[participants] ${address} changed hands, now ${key}${resumed ? ' (back to her row)' : ''}`
 		);
@@ -199,10 +216,21 @@ export class ParticipantRegistry {
 						`Call participants.track(device) for the controllers the game already knows about.`
 				);
 			}
+			// The key the numbers were counted under wins, and so does its owner:
+			// re-sending a previous player's row must not hand it to the person
+			// holding the controller now. A key this registry never minted is
+			// passed through with no resident claimed rather than a guessed one.
+			const participantKey = entry.participantKey ?? this.keyFor(entry.address);
+			const owner =
+				entry.participantKey !== undefined
+					? this._keyOwner[entry.participantKey]
+					: (this.residentFor(entry.address) ?? null);
 			return {
-				participantKey: this.keyFor(entry.address),
+				participantKey,
 				deviceId: entry.address,
-				residentId: this.residentFor(entry.address),
+				// `null`, not undefined, for nobody: the console must not fill the
+				// gap with whoever holds the controller when the row arrives.
+				residentId: owner === undefined ? null : owner,
 				score: entry.score,
 				outcome: entry.outcome,
 				results: entry.results

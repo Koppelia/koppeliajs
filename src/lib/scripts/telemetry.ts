@@ -35,7 +35,13 @@ export type ParticipantResult = {
     /** Stable within the session. A BLE address, a resident id, a local player id. */
     participantKey: string;
     /** The resident behind this participant, when the game knows it. */
-    residentId?: string;
+    /**
+     * The resident behind this participant. `null` says "nobody" EXPLICITLY —
+     * an unbound controller — and the console then leaves the row anonymous.
+     * Left undefined, the console falls back to whoever holds the controller
+     * NOW, which is only right for a row about the current holder.
+     */
+    residentId?: string | null;
     /** Descriptive only — never used to match rows. */
     deviceId?: string;
     /** The headline number. What it MEANS is declared in the game's telemetry.json. */

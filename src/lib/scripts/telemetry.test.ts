@@ -167,3 +167,14 @@ describe('activity boundaries', () => {
 		expect(JSON.stringify(lastSent())).not.toContain('session_id');
 	});
 });
+
+describe('an explicitly anonymous row', () => {
+    it('travels as resident_id: null, so the console does not fill it in', () => {
+        const out = serializeParticipant({ participantKey: 'aa#b1', residentId: null });
+        expect(out).toHaveProperty('resident_id', null);
+    });
+
+    it('leaves the field out when the game said nothing', () => {
+        expect(serializeParticipant({ participantKey: 'aa#b1' })).not.toHaveProperty('resident_id');
+    });
+});

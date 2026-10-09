@@ -152,7 +152,9 @@ describe('building the rows', () => {
 	it('leaves the resident out rather than inventing one', () => {
 		registry.track(bound(A));
 
-		expect(registry.build([{ address: A, score: 1 }])[0].residentId).toBeUndefined();
+		// `null`, not undefined: the console must not fill an anonymous row with
+		// whoever holds the controller when it arrives.
+		expect(registry.build([{ address: A, score: 1 }])[0].residentId).toBeNull();
 	});
 
 	it('says so loudly when asked about a controller it was never told about', () => {
@@ -260,5 +262,46 @@ describe('one person, one row — the split that used to halve her averages', ()
 		registry.track(bound(B, 'res-1'));
 
 		expect(registry.keyFor(A)).not.toBe(registry.keyFor(B));
+	});
+});
+
+describe('a row about somebody who no longer holds the controller', () => {
+	it('goes to the person who earned it, not to the one holding it now', () => {
+		// Mélodie re-sends every tally of the launch. Marie scored on X, then X
+		// went to Jean: her row must stay hers, not overwrite his.
+		registry.track(bound(A, 'marie'));
+		const maries = registry.keyFor(A);
+		registry.track(bound(A, 'jean'));
+
+		const [row] = registry.build([{ address: A, participantKey: maries, score: 8 }]);
+
+		expect(row.participantKey).toBe(maries);
+		expect(row.residentId).toBe('marie');
+	});
+
+	it('keeps an anonymous stint anonymous after a resident took the controller', () => {
+		registry.track(bound(A));
+		const nobody = registry.keyFor(A);
+		registry.track(bound(A, 'jean'));
+
+		const [row] = registry.build([{ address: A, participantKey: nobody, score: 3 }]);
+
+		expect(row.residentId).toBeNull();
+	});
+
+	it('claims no resident for a key it never minted rather than guessing', () => {
+		registry.track(bound(A, 'jean'));
+
+		const [row] = registry.build([{ address: A, participantKey: 'foreign#key', score: 1 }]);
+
+		expect(row.participantKey).toBe('foreign#key');
+		expect(row.residentId).toBeNull();
+	});
+
+	it('still files a row with no key under the current holder', () => {
+		registry.track(bound(A, 'marie'));
+		registry.track(bound(A, 'jean'));
+
+		expect(registry.build([{ address: A, score: 1 }])[0].residentId).toBe('jean');
 	});
 });
