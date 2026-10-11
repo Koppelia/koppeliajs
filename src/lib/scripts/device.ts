@@ -270,6 +270,10 @@ export class Device {
             const timer = setTimeout(() => {
                 if (settled) return;
                 settled = true;
+                // The console may still have honoured the request after we
+                // gave up: a mic streaming while the UI shows it off would be
+                // uncuttable, so make the outcome definite.
+                this.disableMic();
                 reject(new DeviceError("timeout"));
             }, ENABLE_MIC_TIMEOUT_MS);
 
@@ -283,7 +287,12 @@ export class Device {
                 clearTimeout(timer);
                 if (response.getType() === MessageType.ERROR) {
                     const errMsg = response.getParam("error") ?? "Failed to enable mic module";
-                    if (response.getParam("code") === "MIC_LIMIT") {
+                    // A console older than the MIC_LIMIT code only has the
+                    // text; still recognise its limit refusal (no limit value).
+                    const isLimit =
+                        response.getParam("code") === "MIC_LIMIT" ||
+                        /mic limit reached/i.test(String(errMsg));
+                    if (isLimit) {
                         reject(new MicLimitError(errMsg, response.getParam("limit")));
                     } else {
                         reject(new DeviceError(errMsg));

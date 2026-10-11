@@ -2,7 +2,11 @@ import { get, type Writable } from "svelte/store";
 import { routeType } from "../stores/routeStore.js";
 import { type AnyRequestCallback, Console } from "./console.js";
 import { ACTIVITY_STATE_KEY, type AnyState, State } from "./state.js";
-import { Message, PeerType } from "./message.js";
+import { Message, MessageType, PeerType } from "./message.js";
+import { DeviceError } from "./errors.js";
+
+/** How long getMicLimit waits for the console before giving up (ms). */
+export const GET_MIC_LIMIT_TIMEOUT_MS = 5000;
 import { Stage } from "./stage.js";
 import { Device } from "./device.js";
 import { Play } from "./play.js";
@@ -321,11 +325,25 @@ export class Koppelia {
      * your own — `enableMic()` rejects with a {@link MicLimitError} past it.
      */
     public getMicLimit(): Promise<{ limit: number; active: number }> {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                reject(new DeviceError("timeout"));
+            }, GET_MIC_LIMIT_TIMEOUT_MS);
             let request = new Message();
             request.setRequest("getMicLimit");
             request.setDestination(PeerType.MASTER, "");
             this._console.sendMessage(request, (response: Message) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                if (response.getType() === MessageType.ERROR) {
+                    // An older console does not know the request.
+                    reject(new DeviceError(response.getParam("error") ?? "getMicLimit failed"));
+                    return;
+                }
                 resolve({
                     limit: Number(response.getParam("limit", 0)),
                     active: Number(response.getParam("active", 0)),
