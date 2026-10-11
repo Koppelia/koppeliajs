@@ -1,5 +1,5 @@
 import { Console } from "./console.js";
-import { MicLimitError } from "./errors.js";
+import { DeviceError, MicLimitError } from "./errors.js";
 import { Message, MessageType, PeerType } from "./message.js";
 import { Resident } from "./resident.js";
 
@@ -19,11 +19,20 @@ type Vibration = {
 
 export type MicEffect = "echo" | "reverb" | null;
 
+/**
+ * Settings of a controller's microphone sink in Maestro.
+ * - `volume`: 0–100 (percent of the console's mic gain)
+ * - `effect`: `"echo"`, `"reverb"` or `null` for none
+ * - `intensity`: 0–100, how strong the effect is
+ */
 export type MicConfig = {
     volume: number;
     effect?: MicEffect;
     intensity?: number;
 };
+
+/** How long enableMic waits for the console before giving up (ms). */
+export const ENABLE_MIC_TIMEOUT_MS = 5000;
 
 /**
  * Represents a physical or logical device connected to the console.
@@ -249,19 +258,36 @@ export class Device {
 
     /**
      * Enables the microphone module on this device.
-     * Filarmonic enforces a maximum of 5 simultaneous mic modules.
-     * @throws {MicLimitError} if the 5-mic limit has been reached.
+     * The console allows a limited number of simultaneous mics (configurable
+     * there, 2 by default — see {@link Koppelia.getMicLimit}).
+     * @throws {MicLimitError} when that limit is reached (`limit` says how many).
+     * @throws {DeviceError} for any other refusal, or when the console does not
+     * answer within {@link ENABLE_MIC_TIMEOUT_MS}.
      */
     enableMic(): Promise<void> {
         return new Promise((resolve, reject) => {
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                reject(new DeviceError("timeout"));
+            }, ENABLE_MIC_TIMEOUT_MS);
+
             let request = new Message();
             request.addParam("module", "mic");
             request.setDestination(PeerType.DEVICE, this._address);
             request.setRequest("enableModule");
             this._console.sendMessage(request, (response) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
                 if (response.getType() === MessageType.ERROR) {
                     const errMsg = response.getParam("error") ?? "Failed to enable mic module";
-                    reject(new MicLimitError(errMsg));
+                    if (response.getParam("code") === "MIC_LIMIT") {
+                        reject(new MicLimitError(errMsg, response.getParam("limit")));
+                    } else {
+                        reject(new DeviceError(errMsg));
+                    }
                 } else {
                     resolve();
                 }

@@ -397,6 +397,35 @@ describe('Koppelia resident + device notifications', () => {
 	});
 });
 
+describe('Koppelia microphone helpers', () => {
+	it('getMicLimit resolves the console limit and active count', async () => {
+		const k = Koppelia.instance;
+		const p = k.getMicLimit();
+		expect(sentExecs()).toContain('getMicLimit');
+		respondTo('getMicLimit', { limit: 2, active: 1 });
+		await expect(p).resolves.toEqual({ limit: 2, active: 1 });
+	});
+
+	it('onMicLevelsNotification delivers numeric levels per address', () => {
+		const k = Koppelia.instance;
+		const cb = vi.fn();
+		k.onMicLevelsNotification(cb);
+		emitRequest('micLevelsNotification', { levels: { 'aa:bb': 0.4, 'cc:dd': '0.1' } });
+		expect(cb).toHaveBeenCalledWith({ 'aa:bb': 0.4, 'cc:dd': 0.1 });
+	});
+
+	it('onMicLevelsNotification ignores other requests and can be unsubscribed', () => {
+		const k = Koppelia.instance;
+		const cb = vi.fn();
+		const id = k.onMicLevelsNotification(cb);
+		emitRequest('deviceConnectionNotification', { device: { address: 'aa' } });
+		expect(cb).not.toHaveBeenCalled();
+		k.unsubMicLevelsNotification(id);
+		emitRequest('micLevelsNotification', { levels: { 'aa:bb': 0.4 } });
+		expect(cb).not.toHaveBeenCalled();
+	});
+});
+
 describe('Koppelia growable elements', () => {
 	it('registerNewGrowableElement registers on the controller and fires on notification', async () => {
 		routeType.set('controller');

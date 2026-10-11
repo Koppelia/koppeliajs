@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Device } from './device.js';
+import { Device, ENABLE_MIC_TIMEOUT_MS } from './device.js';
 import { MessageType, PeerType } from './message.js';
 import { Message } from './message.js';
-import { MicLimitError } from './errors.js';
+import { DeviceError, MicLimitError } from './errors.js';
 import { makeMockConsole, asConsole } from '../../test/mockConsole.js';
 
 describe('Device defaults and serialization', () => {
@@ -115,7 +115,7 @@ describe('Device.enableMic', () => {
 		await expect(p).resolves.toBeUndefined();
 	});
 
-	it('rejects with MicLimitError when the master returns an error', async () => {
+	it('rejects with MicLimitError, carrying the limit, on a MIC_LIMIT error', async () => {
 		const mock = makeMockConsole();
 		const d = new Device(asConsole(mock), 'aa');
 		const p = d.enableMic();
@@ -123,10 +123,44 @@ describe('Device.enableMic', () => {
 		const err = new Message();
 		err.setType(MessageType.ERROR);
 		err.addParam('error', 'too many mics');
+		err.addParam('code', 'MIC_LIMIT');
+		err.addParam('limit', 2);
 		mock.respondLast(err);
 
 		await expect(p).rejects.toBeInstanceOf(MicLimitError);
 		await expect(p).rejects.toThrow('too many mics');
+		await expect(p).rejects.toMatchObject({ limit: 2 });
+	});
+
+	it('rejects with a plain DeviceError on any other error', async () => {
+		const mock = makeMockConsole();
+		const d = new Device(asConsole(mock), 'aa');
+		const p = d.enableMic();
+
+		const err = new Message();
+		err.setType(MessageType.ERROR);
+		err.addParam('error', "Cannot find device with address 'aa'");
+		mock.respondLast(err);
+
+		await expect(p).rejects.toBeInstanceOf(DeviceError);
+		await expect(p).rejects.not.toBeInstanceOf(MicLimitError);
+		await expect(p).rejects.toThrow('Cannot find device');
+	});
+
+	it('rejects with a DeviceError timeout when the console never answers', async () => {
+		vi.useFakeTimers();
+		try {
+			const mock = makeMockConsole();
+			const d = new Device(asConsole(mock), 'aa');
+			const p = d.enableMic();
+			vi.advanceTimersByTime(ENABLE_MIC_TIMEOUT_MS + 1);
+			await expect(p).rejects.toBeInstanceOf(DeviceError);
+			await expect(p).rejects.toThrow('timeout');
+			// A late answer must not throw on an already-settled promise.
+			mock.respondLast(new Message());
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 

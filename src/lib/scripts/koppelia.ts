@@ -315,6 +315,54 @@ export class Koppelia {
     }
 
     /**
+     * How many controllers may stream their microphone at once on this
+     * console, and how many do right now. The limit is the console's own
+     * (configurable there, 2 by default): show it rather than a number of
+     * your own — `enableMic()` rejects with a {@link MicLimitError} past it.
+     */
+    public getMicLimit(): Promise<{ limit: number; active: number }> {
+        return new Promise((resolve) => {
+            let request = new Message();
+            request.setRequest("getMicLimit");
+            request.setDestination(PeerType.MASTER, "");
+            this._console.sendMessage(request, (response: Message) => {
+                resolve({
+                    limit: Number(response.getParam("limit", 0)),
+                    active: Number(response.getParam("active", 0)),
+                });
+            });
+        });
+    }
+
+    /**
+     * Fires with the input level of every streaming microphone, about five
+     * times a second while at least one streams: `{ [address]: level }` with
+     * `level` in 0..1. Meant for a level meter on the animator's tablet so
+     * they see who is being heard. Unsubscribe with
+     * {@link unsubMicLevelsNotification}.
+     */
+    public onMicLevelsNotification(
+        callback: (levels: Record<string, number>) => void,
+    ): string {
+        return this._console.onRequest((request, params) => {
+            if (request == "micLevelsNotification") {
+                const raw = params.levels;
+                if (raw !== undefined && raw !== null && typeof raw === "object") {
+                    const levels: Record<string, number> = {};
+                    for (const address in raw as Record<string, unknown>) {
+                        levels[address] = Number((raw as Record<string, unknown>)[address]);
+                    }
+                    callback(levels);
+                }
+            }
+        });
+    }
+
+    public unsubMicLevelsNotification(callbackId: string) {
+        this._console.unsubscribeCallback(callbackId);
+    }
+
+    /**
      * Asynchronously fetches the list of registered residents/players.
      *
      * Filarmonic paginates the resident list. Pass `count`/`index` to fetch a
