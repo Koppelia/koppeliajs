@@ -621,3 +621,100 @@ describe('activity boundaries — "Rejouer" must not overwrite the game before i
 		expect(lastSent().request.params.activity).toBe('parcours-lac');
 	});
 });
+
+describe('Koppelia autonomous mode', () => {
+	it('is off when the console answers no context, and asks only once', async () => {
+		const k = Koppelia.instance;
+		const p = k.isAutoModeEnabled();
+		respondTo('getAutonomousContext', { context: null });
+		await expect(p).resolves.toBe(false);
+		await k.isAutoModeEnabled();
+		expect(sentExecs().filter((e) => e === 'getAutonomousContext')).toHaveLength(1);
+	});
+
+	it('returns the session context with its options', async () => {
+		const k = Koppelia.instance;
+		const p = k.getAutoModeContext();
+		respondTo('getAutonomousContext', {
+			context: { runId: 'r1', sessionName: 'Quiz', stepIndex: 0, stepCount: 3, nextStepTitle: 'Pause', options: { questionsLength: 15 }, online: true }
+		});
+		await expect(p).resolves.toMatchObject({ runId: 'r1', stepCount: 3, options: { questionsLength: 15 }, online: true });
+		await expect(k.isAutoModeEnabled()).resolves.toBe(true);
+	});
+
+	it('treats an old console (no answer) as manual mode', async () => {
+		vi.useFakeTimers();
+		const p = Koppelia.instance.getAutoModeContext();
+		vi.advanceTimersByTime(3100);
+		await expect(p).resolves.toBeNull();
+		vi.useRealTimers();
+	});
+
+	it('sends autonomousStepFinished once, to the master', () => {
+		const k = Koppelia.instance;
+		k.finishAutoStep({ headline: 'Rosaline gagne' });
+		k.finishAutoStep();
+		const sent = socketOf().sent.map((s) => JSON.parse(s)).filter((m) => m.request?.exec === 'autonomousStepFinished');
+		expect(sent).toHaveLength(1);
+		expect(sent[0].header.to).toBe(PeerType.MASTER);
+		expect(sent[0].request.params.summary).toEqual({ headline: 'Rosaline gagne' });
+	});
+
+	it('pause/resume ask the master, and the pushes reach the game', () => {
+		const k = Koppelia.instance;
+		const paused = vi.fn();
+		const resumed = vi.fn();
+		k.onAutoModePause(paused);
+		k.onAutoModeResume(resumed);
+		k.pauseAutoMode();
+		k.resumeAutoMode();
+		expect(sentExecs()).toEqual(expect.arrayContaining(['pauseSession', 'resumeSession']));
+		emitRequest('autoModePaused', {});
+		expect(paused).toHaveBeenCalledTimes(1);
+		expect(resumed).not.toHaveBeenCalled();
+		emitRequest('autoModeResumed', {});
+		expect(resumed).toHaveBeenCalledTimes(1);
+	});
+
+	it('sayAndWait resolves when the console reports the end of that sentence', async () => {
+		const k = Koppelia.instance;
+		const p = k.sayAndWait('Bonjour');
+		const say = socketOf().sent.map((s) => JSON.parse(s)).find((m) => m.request?.exec === 'sayRequest');
+		expect(say.header.to).toBe(PeerType.MAESTRO);
+		emitRequest('speechFinished', { id: 'someone-else' });
+		emitRequest('speechFinished', { id: say.request.params.id, interrupted: false });
+		await expect(p).resolves.toEqual({ interrupted: false, timedOut: false });
+	});
+
+	it('sayAndWait gives up after an estimate when the console stays silent', async () => {
+		vi.useFakeTimers();
+		const p = Koppelia.instance.sayAndWait('abc');
+		vi.advanceTimersByTime(3 * 90 + 2000 + 10);
+		await expect(p).resolves.toEqual({ interrupted: false, timedOut: true });
+		vi.useRealTimers();
+	});
+
+	it('askAssistant returns the text, or null without ever throwing', async () => {
+		const k = Koppelia.instance;
+		const p = k.askAssistant({ purpose: 'anecdote', context: { question: 'Q' } });
+		respondTo('assistantRequest', { text: '  Une anecdote.  ' });
+		await expect(p).resolves.toBe('Une anecdote.');
+
+		vi.useFakeTimers();
+		const slow = k.askAssistant({ purpose: 'explain_wrong_majority', context: {}, timeoutMs: 500 });
+		vi.advanceTimersByTime(600);
+		await expect(slow).resolves.toBeNull();
+		vi.useRealTimers();
+	});
+
+	it('isOnline and onConnectivityChanged follow the console', async () => {
+		const k = Koppelia.instance;
+		const p = k.isOnline();
+		respondTo('getConnectivity', { online: true });
+		await expect(p).resolves.toBe(true);
+		const cb = vi.fn();
+		k.onConnectivityChanged(cb);
+		emitRequest('connectivityNotification', { online: false });
+		expect(cb).toHaveBeenCalledWith(false);
+	});
+});

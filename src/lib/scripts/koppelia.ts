@@ -20,6 +20,17 @@ import {
     type ParticipantResult,
     serializeParticipant,
 } from "./telemetry.js";
+import { v4 as uuidv4 } from "uuid";
+import {
+    ASSISTANT_DEFAULT_TIMEOUT_MS,
+    AUTO_MODE_REQUEST_TIMEOUT_MS,
+    type AssistantRequest,
+    type AutoModeContext,
+    AutonomousRequest,
+    parseAutoModeContext,
+    type SpeechResult,
+    speechFallbackMs,
+} from "./autonomous.js";
 
 /**
  * The main Koppelia framework entry point.
@@ -38,6 +49,8 @@ export class Koppelia {
     private __stateRevision = 0;
     private __activityPending = false;
     private __activityStateSeen = 0;
+    private __autoModeContext: Promise<AutoModeContext | null> | null = null;
+    private __autoStepFinished = false;
 
     private constructor() {
         this._console = new Console();
@@ -836,6 +849,196 @@ export class Koppelia {
         cacheRequest.setDestination(PeerType.MASTER, "");
 
         this._console.sendMessage(cacheRequest);
+    }
+
+    /**
+     * Sends a request to the master and waits for its answer, at most `timeoutMs`.
+     * Resolves null on timeout or on an error answer (an older console that does not know the
+     * request): the autonomous-mode calls never throw, a game must always be able to go on.
+     */
+    private _askMaster(exec: string, params: Record<string, unknown>, timeoutMs: number): Promise<Message | null> {
+        return new Promise((resolve) => {
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                resolve(null);
+            }, timeoutMs);
+            const request = new Message();
+            request.setRequest(exec);
+            for (const key in params) request.addParam(key, params[key]);
+            request.setDestination(PeerType.MASTER, "");
+            this._console.sendMessage(request, (response: Message) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                resolve(response.getType() === MessageType.ERROR ? null : response);
+            });
+        });
+    }
+
+    /**
+     * What the session that launched this game asks of it: its settings, its place in the
+     * session, whether the console is online. Null when the game was launched by hand (or the
+     * console is too old to know sessions). Asked once, then remembered for the page's life.
+     * @param refresh Ask the console again instead of the remembered answer.
+     */
+    public getAutoModeContext(refresh = false): Promise<AutoModeContext | null> {
+        if (this.__autoModeContext === null || refresh) {
+            this.__autoModeContext = this._askMaster(AutonomousRequest.getContext, {}, AUTO_MODE_REQUEST_TIMEOUT_MS)
+                .then((response) => (response ? parseAutoModeContext(response.getParam("context", null)) : null));
+        }
+        return this.__autoModeContext;
+    }
+
+    /**
+     * True when this game was launched by an autonomous session (no animator): the game must then
+     * run on its own — read its settings from {@link getAutoModeContext}, speak its rules, draw a
+     * big Pause button, never wait for the tablet — and end with {@link finishAutoStep}.
+     */
+    public async isAutoModeEnabled(): Promise<boolean> {
+        return (await this.getAutoModeContext()) !== null;
+    }
+
+    /**
+     * « I showed the scores, I'm done »: the session closes the game and moves to its next step.
+     * Call it ONCE, from the monitor, after the end page has been shown and announced. Later
+     * calls are ignored. Does nothing outside a session (the console ignores it).
+     * @param summary Optional one-line result the console may reuse in its transition sentence.
+     */
+    public finishAutoStep(summary: { headline?: string } = {}): void {
+        if (this.__autoStepFinished) return;
+        this.__autoStepFinished = true;
+        const request = new Message();
+        request.setRequest(AutonomousRequest.stepFinished);
+        request.addParam("summary", summary);
+        request.setDestination(PeerType.MASTER, "");
+        this._console.sendMessage(request);
+    }
+
+    /**
+     * The game's Pause button: asks the console to pause the whole session (voice cut, TV shows
+     * « Pause », clocks frozen). The game freezes its own timers in {@link onAutoModePause}, which
+     * fires on every peer — including this one — once the console confirms.
+     */
+    public pauseAutoMode(): void {
+        this._sendToMaster(AutonomousRequest.pause);
+    }
+
+    /** The game's « Reprendre » button; the counterpart of {@link pauseAutoMode}. */
+    public resumeAutoMode(): void {
+        this._sendToMaster(AutonomousRequest.resume);
+    }
+
+    private _sendToMaster(exec: string, params: Record<string, unknown> = {}): void {
+        const request = new Message();
+        request.setRequest(exec);
+        for (const key in params) request.addParam(key, params[key]);
+        request.setDestination(PeerType.MASTER, "");
+        this._console.sendMessage(request);
+    }
+
+    /**
+     * Fires when the session is paused (from a game's Pause button or the tablet menu): freeze
+     * timers and animations, stop waiting for answers.
+     * @returns A subscription id to pass to `unsubscribeCallback`.
+     */
+    public onAutoModePause(callback: () => void): string {
+        return this._console.onRequest((request) => {
+            if (request == AutonomousRequest.paused) callback();
+        });
+    }
+
+    /**
+     * Fires when the session resumes after {@link onAutoModePause}.
+     * @returns A subscription id to pass to `unsubscribeCallback`.
+     */
+    public onAutoModeResume(callback: () => void): string {
+        return this._console.onRequest((request) => {
+            if (request == AutonomousRequest.resumed) callback();
+        });
+    }
+
+    /**
+     * Fires on every change of the running session (step, pause, end). Its payload is the
+     * console's `SessionState` (see koppeliajs-core); most games only need pause/resume.
+     * @returns A subscription id to pass to `unsubscribeCallback`.
+     */
+    public onSessionState(callback: (state: Record<string, unknown>) => void): string {
+        return this._console.onRequest((request, params) => {
+            if (request == AutonomousRequest.stateNotification && params.state) {
+                callback(params.state as Record<string, unknown>);
+            }
+        });
+    }
+
+    /**
+     * Like {@link say}, but resolves when the console has finished saying it — so a game can start
+     * a countdown only after the answers were read. If the console never reports the end (older
+     * Maestro), it resolves anyway after an estimate of the sentence's length. Never rejects.
+     */
+    public sayAndWait(sentence: string): Promise<SpeechResult> {
+        return new Promise((resolve) => {
+            const id = uuidv4();
+            let settled = false;
+            const finish = (result: SpeechResult) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                this._console.unsubscribeCallback(subscription);
+                resolve(result);
+            };
+            const subscription = this._console.onRequest((request, params) => {
+                if (request == AutonomousRequest.speechFinished && params.id === id) {
+                    finish({ interrupted: Boolean(params.interrupted), timedOut: false });
+                }
+            });
+            const timer = setTimeout(() => finish({ interrupted: false, timedOut: true }), speechFallbackMs(sentence));
+            const sayRequest = new Message();
+            sayRequest.setRequest("sayRequest");
+            sayRequest.addParam("sentence", sentence);
+            sayRequest.addParam("id", id);
+            sayRequest.setDestination(PeerType.MAESTRO, "");
+            this._console.sendMessage(sayRequest);
+        });
+    }
+
+    /** Cuts the sentence being said and empties the console's speech queue. */
+    public stopSpeech(): void {
+        this._sendToMaster(AutonomousRequest.stopSpeech);
+    }
+
+    /** Whether the console has internet right now (false if it cannot tell). */
+    public async isOnline(): Promise<boolean> {
+        const response = await this._askMaster(AutonomousRequest.getConnectivity, {}, AUTO_MODE_REQUEST_TIMEOUT_MS);
+        return response ? Boolean(response.getParam("online", false)) : false;
+    }
+
+    /**
+     * Fires when the console gains or loses internet.
+     * @returns A subscription id to pass to `unsubscribeCallback`.
+     */
+    public onConnectivityChanged(callback: (online: boolean) => void): string {
+        return this._console.onRequest((request, params) => {
+            if (request == AutonomousRequest.connectivityNotification) callback(Boolean(params.online));
+        });
+    }
+
+    /**
+     * Optional help from an AI, only when the console is online: an anecdote, or why most players
+     * chose a wrong answer. Resolves the text, or null (offline, too slow, refused, quota) — the
+     * game then simply goes on with what it had written. Never rejects. Never put a resident's
+     * name in `context`.
+     */
+    public async askAssistant(request: AssistantRequest): Promise<string | null> {
+        const timeoutMs = request.timeoutMs ?? ASSISTANT_DEFAULT_TIMEOUT_MS;
+        const response = await this._askMaster(
+            AutonomousRequest.assistant,
+            { purpose: request.purpose, context: request.context, timeoutMs },
+            timeoutMs,
+        );
+        const text = response?.getParam("text", null);
+        return typeof text === "string" && text.trim() !== "" ? text.trim() : null;
     }
 
     /**
