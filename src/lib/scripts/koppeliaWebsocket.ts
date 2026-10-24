@@ -60,6 +60,12 @@ export class KoppeliaWebsocket {
      * @param data The message payload to send.
      * @param callback Optional callback to be executed when a response to this specific request is received.
      */
+    /** Whether a frame sent now leaves at once instead of waiting in the pending queue. */
+    public get isOpen(): boolean {
+        const readyState = this.socket?.readyState;
+        return this.socket !== undefined && (readyState === undefined || readyState === WS_OPEN);
+    }
+
     public send(data: Message, callback?: Callback) {
         if (this.socket === undefined) {
             logger.log("KoppeliaWebsocket::send(): Koppelia websocket client was not instantiated")

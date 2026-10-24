@@ -65,7 +65,13 @@ export class Koppelia {
             this._seedParticipants();
             this._clock.sync();
         });
-        if (!import.meta.env.SSR) setInterval(() => this._clock.sync(), CLOCK_SYNC_INTERVAL_MS);
+        // Not while the socket is down: the request would wait in the pending queue, where it
+        // takes the place of a game frame, and its round trip would count the whole outage.
+        if (!import.meta.env.SSR) {
+            setInterval(() => {
+                if (this._console.consoleSocket.isOpen) this._clock.sync();
+            }, CLOCK_SYNC_INTERVAL_MS);
+        }
         // Every state frame that arrives bumps the revision. A pending boundary
         // waits for one.
         //

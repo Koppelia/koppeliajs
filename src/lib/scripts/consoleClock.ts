@@ -22,8 +22,9 @@ interface Sample {
  * console's clock: {@link now} is `Date.now()` corrected by the measured gap. On the TV (the
  * console itself) the gap is about 0.
  *
- * A console without `getConsoleTime` (before KOPPELIA_0.34) answers an error: the gap stays
- * 0, which is the old behaviour.
+ * A console without `getConsoleTime` (before KOPPELIA_0.34) answers "Unsupported message":
+ * the gap stays 0, which is the old behaviour, and it is not asked again. Any other error
+ * (the console failing once) only loses that sample.
  */
 export class ConsoleClock {
     private _samples: Sample[] = [];
@@ -53,7 +54,10 @@ export class ConsoleClock {
         const sentAt = this._localNow();
         this._send(request, (reply: Message) => {
             if (reply.getType() === MessageType.ERROR) {
-                this._supported = false;
+                // Filarmonic's router answers an unknown action with this exact prefix.
+                if (String(reply.getParam("error", "")).startsWith("Unsupported message")) {
+                    this._supported = false;
+                }
                 return;
             }
             const consoleTime = Number(reply.getParam("time"));

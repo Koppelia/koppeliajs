@@ -7,12 +7,13 @@ function harness(aheadMs: number) {
 	let local = 1_000_000;
 	const pending: { reply: (m: Message) => void }[] = [];
 	const clock = new ConsoleClock((_request, callback) => pending.push({ reply: callback }), () => local);
-	const answer = (outMs: number, backMs: number, type = MessageType.RESPONSE) => {
+	const answer = (outMs: number, backMs: number, type = MessageType.RESPONSE, error = '') => {
 		const { reply } = pending.shift()!;
 		local += outMs;
 		const message = new Message();
 		message.header.type = type;
-		message.addParam('time', local + aheadMs);
+		if (error) message.addParam('error', error);
+		else message.addParam('time', local + aheadMs);
 		local += backMs;
 		reply(message);
 	};
@@ -44,9 +45,19 @@ describe('ConsoleClock', () => {
 	it('stays on the local clock with a console that has no getConsoleTime', () => {
 		const { clock, answer, now } = harness(104_000);
 		clock.sync();
-		answer(10, 10, MessageType.ERROR);
+		answer(10, 10, MessageType.ERROR, 'Unsupported message: type=request, action=getConsoleTime');
 		clock.sync(); // not even asked again
 		expect(clock.now()).toBe(now());
 		expect(clock.offsetMs).toBe(0);
+	});
+
+	it('keeps asking after another error (the console failing once)', () => {
+		const { clock, answer, now } = harness(104_000);
+		clock.sync();
+		answer(10, 10, MessageType.ERROR, 'boom');
+		expect(clock.offsetMs).toBe(0);
+		clock.sync();
+		answer(10, 10);
+		expect(clock.now()).toBe(now() + 104_000);
 	});
 });
