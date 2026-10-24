@@ -14,6 +14,7 @@ import { Resident } from "./resident.js";
 import { Option, type OptionChangedCallback } from "./option.js";
 import { logger, setDebugMode } from "./logger.js";
 import { CustomCallbacks } from "./customCallback.js";
+import { CLOCK_SYNC_INTERVAL_MS, ConsoleClock } from "./consoleClock.js";
 import { Song } from "./song.js";
 import { ParticipantRegistry } from "./participants.js";
 import {
@@ -45,6 +46,7 @@ export class Koppelia {
     private _option: Option;
     private _callbacks: CustomCallbacks;
     private _participants: ParticipantRegistry;
+    private _clock: ConsoleClock;
     /** Counts inbound state updates, so a pending boundary can wait for one. */
     private __stateRevision = 0;
     private __activityPending = false;
@@ -56,10 +58,14 @@ export class Koppelia {
         this._console = new Console();
         this._callbacks = new CustomCallbacks(this._console);
         this._participants = new ParticipantRegistry(this._console);
+        this._clock = new ConsoleClock((message, callback) => this._console.sendMessage(message, callback));
+        // Measured again on every (re)connection, then once a minute.
         this._console.onReady(() => {
             this._identify();
             this._seedParticipants();
+            this._clock.sync();
         });
+        if (!import.meta.env.SSR) setInterval(() => this._clock.sync(), CLOCK_SYNC_INTERVAL_MS);
         // Every state frame that arrives bumps the revision. A pending boundary
         // waits for one.
         //
@@ -248,6 +254,16 @@ export class Koppelia {
 
     public getCurrentStage(): string {
         return this._stage.currentStage;
+    }
+
+    /**
+     * Now, in milliseconds since the epoch, on the console's clock. Use it instead of
+     * `Date.now()` for any time shared between the TV and the tablet (a countdown started on
+     * one and shown on the other): the consoles have no NTP client, and their clock can be
+     * minutes away from the tablet's. On the TV it is `Date.now()` give or take a millisecond.
+     */
+    public consoleNow(): number {
+        return this._clock.now();
     }
 
     /**
