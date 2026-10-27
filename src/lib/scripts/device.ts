@@ -249,11 +249,54 @@ export class Device {
      * @param moduleName The name of the module to enable (Note: retains original code spelling).
      */
     private _enableModule(moduleName: string) {
+        this._moduleRequest("enableModule", moduleName);
+    }
+
+    private _moduleRequest(exec: "enableModule" | "disableModule", moduleName: string) {
         let request = new Message();
         request.addParam("module", moduleName);
         request.setDestination(PeerType.DEVICE, this._address);
-        request.setRequest("enableModule");
+        request.setRequest(exec);
         this._console.sendMessage(request);
+    }
+
+    /**
+     * Turns one of the controller's modules on (its firmware name: "throw", "rot", "joyst"…).
+     * The `on…` methods (onRotation, onThrow…) do it for you; this is for a game that must
+     * turn a module on before it listens, or keep it on between two stages — or for a module
+     * with nothing to listen to: "imurec", the IMU recorder (firmware ≥ 0.4.2), whose button
+     * then records on its own; the console keeps each recording, with the console time of
+     * every sample. Only the base modules (buzz, led, vibro…) are on at a controller's boot:
+     * every other one waits for the game.
+     */
+    enableModule(moduleName: string): void {
+        this._moduleRequest("enableModule", moduleName);
+    }
+
+    /** Turns a module off again (the console turns them all off when the game closes). */
+    disableModule(moduleName: string): void {
+        this._moduleRequest("disableModule", moduleName);
+    }
+
+    /**
+     * The throw detector (firmware ≥ 0.4.2, module "throw"): turns it on and listens.
+     *
+     * Two kinds of packets, both with the controller's own clock (`…UptimeMs`) and the
+     * console's time of reception (`receivedUnixMs`) to bring them onto the console clock:
+     * - `swing`: one per swing of the arm, when it is over — its peak speed (`peakDps`) and when;
+     * - `release`: the button let go — the swing's last ~1.4 s as the rate about its axis
+     *   (`uptimeMs[]`, `rateDps[]`, + the way of the fastest), to tell the arm's angle.
+     */
+    onThrow(callback: (packet: ThrowPacket) => void): string {
+        this._enableModule("throw");
+        this._attachEvent("throw");
+        let callbackId = this._console.onRequest((request, params, from, address) => {
+            if (request == "throw" && address == this._address) {
+                callback(params as ThrowPacket);
+            }
+        });
+        this._callbackIds.push(callbackId);
+        return callbackId;
     }
 
     /**
@@ -454,3 +497,32 @@ export class Device {
         return this.isAttachedToResident;
     }
 }
+
+/** A swing seen by the controller's throw detector ({@link Device.onThrow}). */
+export interface SwingPacket {
+    kind: "swing";
+    address: string;
+    receivedUnixMs: number;
+    sentUptimeMs: number;
+    peakUptimeMs: number;
+    startUptimeMs: number;
+    endUptimeMs: number;
+    peakDps: number;
+    gyroAtPeakDps: number[];
+    quaternionAtPeak: number[];
+}
+
+/** The button let go while the throw detector runs ({@link Device.onThrow}). */
+export interface ReleasePacket {
+    kind: "release";
+    address: string;
+    receivedUnixMs: number;
+    sentUptimeMs: number;
+    releaseUptimeMs: number;
+    axis: number[];
+    uptimeMs: number[];
+    rateDps: number[];
+}
+
+export type ThrowPacket = SwingPacket | ReleasePacket;
+

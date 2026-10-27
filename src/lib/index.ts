@@ -15,7 +15,9 @@ import { DeviceError, MicLimitError } from "./scripts/errors.js";
 import { Play } from "./scripts/play.js";
 import { Resident } from "./scripts/resident.js";
 import { Song } from "./scripts/song.js";
-import type { MicConfig, MicEffect } from "./scripts/device.js";
+import type { MicConfig, MicEffect, ReleasePacket, SwingPacket, ThrowPacket } from "./scripts/device.js";
+import { Vision, VisionError, VisionRequest } from "./scripts/vision.js";
+import type { PoseData, VisionCameraState, VisionModuleHandle, VisionStatus } from "./scripts/vision.js";
 import type { ParticipantResult } from "./scripts/telemetry.js";
 import { ParticipantRegistry, residentKey } from "./scripts/participants.js";
 import type { Participant, ParticipantEntry } from "./scripts/participants.js";
@@ -29,5 +31,5 @@ import { audioManager, AudioManager  } from './stores/audioManager.js';
 
 export { KBase, GrowableElement, Button, ResizableText }   // Compoenents
 
-export { updateRoute, routeType, Koppelia, Console, Message, Device, Play, Song, audioManager, Resident, AudioManager, DeviceError, MicLimitError, ParticipantRegistry, residentKey, AutonomousRequest};    //  libraries and store
-export type { MicConfig, MicEffect, ParticipantResult, Participant, ParticipantEntry, AutoModeContext, AssistantPurpose, AssistantRequest, SpeechResult };
+export { updateRoute, routeType, Koppelia, Console, Message, Device, Play, Song, audioManager, Resident, AudioManager, DeviceError, MicLimitError, ParticipantRegistry, residentKey, AutonomousRequest, Vision, VisionError, VisionRequest};    //  libraries and store
+export type { MicConfig, MicEffect, ParticipantResult, Participant, ParticipantEntry, AutoModeContext, AssistantPurpose, AssistantRequest, SpeechResult, ReleasePacket, SwingPacket, ThrowPacket, PoseData, VisionCameraState, VisionModuleHandle, VisionStatus };

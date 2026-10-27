@@ -9,6 +9,7 @@ import { DeviceError } from "./errors.js";
 export const GET_MIC_LIMIT_TIMEOUT_MS = 5000;
 import { Stage } from "./stage.js";
 import { Device } from "./device.js";
+import { Vision } from "./vision.js";
 import { Play } from "./play.js";
 import { Resident } from "./resident.js";
 import { Option, type OptionChangedCallback } from "./option.js";
@@ -47,6 +48,7 @@ export class Koppelia {
     private _callbacks: CustomCallbacks;
     private _participants: ParticipantRegistry;
     private _clock: ConsoleClock;
+    private _vision: Vision;
     /** Counts inbound state updates, so a pending boundary can wait for one. */
     private __stateRevision = 0;
     private __activityPending = false;
@@ -58,6 +60,7 @@ export class Koppelia {
         this._console = new Console();
         this._callbacks = new CustomCallbacks(this._console);
         this._participants = new ParticipantRegistry(this._console);
+        this._vision = new Vision(this._console);
         this._clock = new ConsoleClock((message, callback) => this._console.sendMessage(message, callback));
         // Measured again on every (re)connection, then once a minute.
         this._console.onReady(() => {
@@ -871,6 +874,14 @@ export class Koppelia {
         cacheRequest.setDestination(PeerType.MASTER, "");
 
         this._console.sendMessage(cacheRequest);
+    }
+
+    /**
+     * The console's camera (the optional vision software): its status, the detection
+     * modules (the skeleton), the live picture. See {@link Vision}.
+     */
+    public get vision(): Vision {
+        return this._vision;
     }
 
     /**

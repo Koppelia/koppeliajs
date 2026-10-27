@@ -4,6 +4,7 @@ export type AnyRequest = { [key: string]: any };
 
 export enum PeerType {
     MAESTRO = "maestro",
+    CONCERTO = "concerto",
     MONITOR = "monitor",
     MASTER = "master",
     CONTROLLER = "controller",

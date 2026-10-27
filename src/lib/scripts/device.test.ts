@@ -345,3 +345,29 @@ describe('Device.onCursor field of view', () => {
 		expect(mock.sentWithExec('setCursorFov')).toHaveLength(0);
 	});
 });
+
+describe('Device modules', () => {
+	it('enableModule / disableModule send the module by name', () => {
+		const mock = makeMockConsole();
+		const d = new Device(asConsole(mock), 'aa');
+		d.enableModule('throw');
+		d.disableModule('throw');
+		const [on, off] = [mock.sentWithExec('enableModule')[0], mock.sentWithExec('disableModule')[0]];
+		expect(on.request.params).toEqual({ module: 'throw' });
+		expect(off.request.params).toEqual({ module: 'throw' });
+		expect(on.header.to_addr).toBe('aa');
+	});
+
+	it('onThrow turns the detector on and hands over this controller\'s packets', () => {
+		const mock = makeMockConsole();
+		const d = new Device(asConsole(mock), 'aa');
+		const cb = vi.fn();
+		d.onThrow(cb);
+		expect(mock.sentWithExec('enableModule')[0].request.params).toEqual({ module: 'throw' });
+		expect(mock.sentWithExec('attachEvent')[0].request.params).toEqual({ event: 'throw' });
+		mock.trigger.request('throw', { kind: 'swing', peakDps: 300 }, 'device', 'aa');
+		mock.trigger.request('throw', { kind: 'swing', peakDps: 100 }, 'device', 'bb');
+		expect(cb).toHaveBeenCalledTimes(1);
+		expect(cb.mock.calls[0][0].peakDps).toBe(300);
+	});
+});
