@@ -85,4 +85,32 @@ describe('Vision', () => {
 		mock.trigger.request(VisionRequest.statusNotification, { status: { ...STATUS, camera: { state: 'absent' } } });
 		expect(onStatus.mock.calls[0][0].camera.state).toBe('absent');
 	});
+
+	it('a skeleton-only take and the game\'s marks', async () => {
+		const mock = makeMockConsole();
+		const vision = new Vision(asConsole(mock));
+		const take = vision.startRecording({ tool: 'Bulles' }, { video: false });
+		expect(mock.lastMessage().request).toMatchObject({
+			exec: VisionRequest.startRecording,
+			params: { label: { tool: 'Bulles' }, video: false }
+		});
+		mock.respondLast(answer({ take: { number: 3, video: false } }));
+		expect(await take).toEqual({ number: 3, video: false });
+		vision.markRecording({ type: 'caught', unixMs: 12 });
+		expect(mock.lastMessage().request).toMatchObject({
+			exec: VisionRequest.markRecording,
+			params: { event: { type: 'caught', unixMs: 12 } }
+		});
+		// A take as before: no `video` sent, an older console sees the same request.
+		void vision.startRecording({ tool: 'Bulles' });
+		expect(mock.lastMessage().request.params).not.toHaveProperty('video');
+	});
+
+	it('status: what a take can keep', async () => {
+		const mock = makeMockConsole();
+		const vision = new Vision(asConsole(mock));
+		const asked = vision.status();
+		mock.respondLast(answer({ status: { ...STATUS, recordingKinds: ['video', 'skeleton'] } }));
+		expect((await asked).recordingKinds).toEqual(['video', 'skeleton']);
+	});
 });

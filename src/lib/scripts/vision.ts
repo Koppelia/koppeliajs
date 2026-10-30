@@ -25,6 +25,7 @@ export const VisionRequest = {
     closePreview: "closeVisionPreview",
     startRecording: "startVisionRecording",
     stopRecording: "stopVisionRecording",
+    markRecording: "markVisionRecording",
     getRecordings: "getVisionRecordings",
     statusNotification: "visionStatusNotification",
     data: "visionData",
@@ -47,12 +48,24 @@ export interface VisionStatus {
     modules: string[];
     /** A take is recording ({@link Vision.startRecording}). */
     recording: boolean;
+    /**
+     * What a take can keep: "video" (the picture and the skeleton), "skeleton" (the
+     * skeleton only, no picture). A console from before skeleton-only takes says ["video"].
+     */
+    recordingKinds: string[];
+}
+
+export interface RecordingOptions {
+    /** False: the skeleton only, no picture kept (people who have not agreed to be filmed). */
+    video?: boolean;
 }
 
 /**
  * Why a vision request failed: `NOT_INSTALLED`, `NOT_RUNNING`, `NO_CAMERA`,
  * `UNKNOWN_MODULE`, `BAD_OPTIONS`, `RECORDING` (a take already recording, or none to
- * stop), `TIMEOUT`, or `CONCERTO` (anything else).
+ * stop), `DISK_FULL` (not enough room on the console to start a take), `NO_SKELETON_ONLY`
+ * (a skeleton-only take asked of a console that cannot record one: nothing recorded),
+ * `TIMEOUT`, or `CONCERTO` (anything else).
  */
 export class VisionError extends Error {
     constructor(
@@ -93,6 +106,7 @@ const UNKNOWN_STATUS: VisionStatus = {
     camera: { state: "unknown" },
     modules: [],
     recording: false,
+    recordingKinds: [],
 };
 
 export class Vision {
@@ -174,12 +188,28 @@ export class Vision {
 
     /**
      * Records a take of what the camera sees — the video, each frame's time, the skeleton —
-     * kept on the console (`label` names it). One at a time; it stops with
-     * {@link stopRecording}, or when the game closes. Nothing from the controllers goes in
-     * it: a controller's own recording (module "imurec") is kept apart, on the same clock.
+     * kept on the console (`label` names it). `{ video: false }` keeps the skeleton only, no
+     * picture; a console that cannot do that refuses (`NO_SKELETON_ONLY`) rather than film.
+     * One at a time; it stops with {@link stopRecording}, or when the game closes. Nothing
+     * from the controllers goes in it: a controller's own recording (module "imurec") is
+     * kept apart, on the same clock.
      */
-    async startRecording(label: Record<string, unknown>): Promise<Record<string, unknown>> {
-        return (await this._ask(VisionRequest.startRecording, { label }, START_TIMEOUT_MS)).getParam("take", {});
+    async startRecording(
+        label: Record<string, unknown>,
+        options: RecordingOptions = {},
+    ): Promise<Record<string, unknown>> {
+        const params: Record<string, unknown> = { label };
+        if (options.video === false) params.video = false;
+        return (await this._ask(VisionRequest.startRecording, params, START_TIMEOUT_MS)).getParam("take", {});
+    }
+
+    /**
+     * Notes what the game saw happen in the take being recorded (a throw, a bubble caught):
+     * a line of its `events.jsonl`. `unixMs` (the console's clock, {@link Koppelia.consoleNow})
+     * dates it, else the time it arrives. Nothing happens when no take of this page records.
+     */
+    markRecording(event: Record<string, unknown>): void {
+        this._tell(VisionRequest.markRecording, { event });
     }
 
     /** Ends the take; returns its summary (frames, duration, measured fps). */
@@ -236,5 +266,6 @@ function parseStatus(raw: unknown): VisionStatus {
         camera: { state: (camera.state ?? "unknown") as VisionCameraState, error: camera.error ?? null },
         modules: Array.isArray(s.modules) ? s.modules.map(String) : [],
         recording: Boolean(s.recording),
+        recordingKinds: Array.isArray(s.recordingKinds) ? s.recordingKinds.map(String) : [],
     };
 }
